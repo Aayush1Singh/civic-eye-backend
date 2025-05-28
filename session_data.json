@@ -1,0 +1,64 @@
+[
+  {
+    "_id": { "$oid": "6653517b98aee278eb1e6c01" },
+    "session_id": "b4a7c9f9-3b04-4d53-9a16-2d4743bcf4d1",
+    "creator": { "$oid": "6630c4cb3107b768cfeee509" },
+    "summary": "The user is exploring the Indian Contract Act PDF and is mainly interested in the definition of consideration and the essentials of a valid contract.",
+    "document_meta": {
+      "pdf_name": "Indian_Contract_Act_1872.pdf",
+      "num_pages": "56",
+      "lang": "en"
+    },
+    "chat_history": [
+      {
+        "query": "Give me section-wise headings in this Act.",
+        "response": "Here are the headings: 1. Preliminary (S-1 to S-2) …",
+        "asked_at": { "$date": "2025-05-26T09:02:21Z" }
+      },
+      {
+        "query": "What is the definition of consideration?",
+        "response": "Section 2(d) defines consideration as …",
+        "asked_at": { "$date": "2025-05-26T09:04:10Z" }
+      }
+    ],
+    "status": "active",
+    "embedding_index": "idx:b4a7c9f9-3b04-4d53-9a16-2d4743bcf4d1",
+    "created_at": { "$date": "2025-05-26T09:01:55Z" }
+  },
+  {
+    "_id": { "$oid": "6653517b98aee278eb1e6c02" },
+    "session_id": "79d8e767-8925-46c5-949a-0ec5a83272c3",
+    "creator": { "$oid": "6630c4cb3107b768cfeee509" },
+    "summary": "Conversation about GST rules and recent CBDT circulars; user intends to draft a compliance checklist.",
+    "document_meta": {
+      "pdf_name": "GST_Rules_2024.pdf;CBDT_Circular_April_2025.pdf",
+      "num_pages": "148",
+      "lang": "en"
+    },
+    "chat_history": [
+      {
+        "query": "List late-fee caps under the amended GST Rule 138E.",
+        "response": "After July 1 2024 the late-fee cap is ₹10,000 per return …",
+        "asked_at": { "$date": "2025-05-24T13:15:02Z" }
+      }
+    ],
+    "status": "expired",
+    "embedding_index": "idx:79d8e767",
+    "created_at": { "$date": "2025-05-24T13:10:40Z" }
+  },
+  {
+    "_id": { "$oid": "6653517b98aee278eb1e6c03" },
+    "session_id": "f5340e60-5370-4b25-a112-4d79b9cfc59a",
+    "creator": { "$oid": "664fe1a16987e64588225443" },
+    "summary": "",
+    "document_meta": {
+      "pdf_name": "Draft_MoU_Bilingual.pdf",
+      "num_pages": "8",
+      "lang": "hi-en"
+    },
+    "chat_history": [],
+    "status": "active",
+    "embedding_index": "idx:f5340e60",
+    "created_at": { "$date": "2025-05-26T10:27:14Z" }
+  }
+]
