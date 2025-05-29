@@ -6,7 +6,7 @@ API_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-large
 
 # Map each label to the corresponding Redis index name
 label_to_index = {
-    "constitutional law":            "constitution_vector",
+    "rights":            "constitution_vector",
     "substantive criminal law":      "BNS_vector",       # BNS: Bharatiya Nyaya Sanhita
     "criminal procedure":            "BNSS_vector",      # BNSS: Bharatiya Nagarik Suraksha Sanhita
     "corporate law":                 "company_vector",
@@ -28,5 +28,6 @@ def classifier(user_query):
     "inputs": user_query,
     "parameters": {"candidate_labels": DOCUMENT_CLASSES,"multi_label":True},
   })
+  print(output)
   
   return output['labels'],output['scores']

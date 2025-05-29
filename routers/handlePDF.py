@@ -1,16 +1,13 @@
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from dotenv import load_dotenv
 import os
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import fitz
-from langchain.vectorstores.redis import Redis
-from ..services.gemini_embedder import get_model
+from langchain_community.vectorstores.redis import Redis
+from services.gemini_embedder import get_model
 import redis
 load_dotenv()
-print(os.getenv('GEMINI_KEY_LIST'))
 GEMINI_LIST=eval(os.getenv('GEMINI_KEY_LIST'))
 
 
@@ -37,15 +34,18 @@ def store_in_redis(docs, index_name):
     vectorstore = Redis.from_documents(
         documents=docs,
         embedding=get_model(),
-        redis_url="redis://localhost:6379",
+        redis_url="redis://redis:6379",
         index_name=index_name
     )
     return vectorstore
 
 
 def uploadPDF(pdf_path:str,session_id:str):
+  print(pdf_path)
   text = extract_text_from_pdf(pdf_path)
   documents = chunk_text(text)
+  if not documents:
+    raise ValueError(f"No text found in PDF at {pdf_path}")  
   store_in_redis(documents, index_name=session_id)
 
 

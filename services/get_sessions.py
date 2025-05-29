@@ -1,5 +1,5 @@
-from database import db
-from summary_generator import new_summary_generator
+from services.database import db
+from services.summary_generator import new_summary_generator
 from datetime import datetime
 def get_session(session_id,creator):
   sessions=db['Sessions']

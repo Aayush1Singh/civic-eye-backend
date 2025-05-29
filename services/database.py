@@ -1,5 +1,8 @@
 from pymongo import MongoClient
-from datetime import datetime
-client = MongoClient("mongodb://localhost:27017/")
+from dotenv import load_dotenv
+import os
+load_dotenv()
+mongo_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+client=MongoClient(mongo_url)
+# client = MongoClient(os.getenv('DB_URL'))
 db=client['civic-eye']
-

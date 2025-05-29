@@ -1,18 +1,18 @@
-from get_sessions import get_summary
-from gemini_embedder import embedder_cycle
+from services.get_sessions import get_summary
+from services.gemini_embedder import embedder_cycle
 from langchain_community.vectorstores import Redis
-from gemini_chat_llm import llm_cycle
-from summary_generator import new_summary_generator
-from get_sessions import write_chat_to_history
+from services.gemini_chat_llm import llm_cycle
+from services.summary_generator import new_summary_generator
+from services.get_sessions import write_chat_to_history
 from langchain.prompts import PromptTemplate
-from zero_shot_classifier import label_to_index,classifier
-prompt=PromptTemplate(template="""**System Role:**
+from services.zero_shot_classifier import label_to_index,classifier
+prompt=PromptTemplate(template="""
 You are an AI Legal Assistant specializing in Indian Law. Your purpose is to provide accurate and informative responses to legal queries within the Indian legal framework. You must operate with precision, referencing specific laws and sections.
 
 **Core Task:**
 Carefully analyze the provided `summary of chat history`, `context`, and the user's `query`. Based on these three elements and your existing knowledge of Indian law, formulate a comprehensive and precise answer. Always cite relevant Indian laws and legal provisions.
 
-**Input Variables (to be provided to you):**
+**Input Variables:**
 1.  `summary of chat history`: {chat_history}
     *(Review this to understand the conversational flow and any previously established details.)*
 2.  `context`: {context}
@@ -32,9 +32,10 @@ Carefully analyze the provided `summary of chat history`, `context`, and the use
 7.  **Address the Query Directly:** Ensure your response comprehensively addresses the user's `query`. Refer to `chat_history` to ensure your answer is contextually appropriate.
 8.  **Structured Answer:** If appropriate, structure your answer with headings or bullet points for better readability, especially for multi-faceted queries.
 9.  **Important Disclaimer (Mandatory Inclusion):** ALWAYS conclude your response with the following disclaimer: "Disclaimer: The information provided here is for general informational purposes only and does not constitute legal advice. It is recommended to consult with a qualified legal professional for advice tailored to your specific situation."
-
+10. **Sometimes context or summary may not be provided, in that case just answer the query with your knowledge**
+11. Just output the legal answer directly. No meta-commentary.
 **Output Expectation:**
-Generate a clear, accurate, and legally supported answer to the user's `query`. The answer must integrate information from `summary of chat history` and `context`, be based on Indian law, include specific legal citations, and end with the mandatory disclaimer.
+JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
 def query_resolver(session_id,query):
@@ -46,7 +47,7 @@ def query_resolver(session_id,query):
   
   index_names=[session_id]
   for i in range(len(labels)):
-    if(scores[i]>0.5):
+    if(scores[i]>0.3):
       index_names.append(label_to_index[labels[i]])
     else:
       break
@@ -56,7 +57,7 @@ def query_resolver(session_id,query):
     # Load vector store
     try:
       vectorstore = Redis(
-        redis_url="redis://localhost:6379", 
+        redis_url="redis://redis:6379", 
         index_name=index_name,
         embedding=embedding
       )
@@ -83,8 +84,9 @@ def query_resolver(session_id,query):
   new_chat={
     'query':query,"response":output
   }
+
   write_chat_to_history(session_id,current_summary,new_chat)
   # print(output.content)
   return output
 
-print(query_resolver("79d8e767-8925-46c5-949a-0ec5a83272c3",'Owner kicked me out of the house for not paying previous month\'s rent, what are my options'))
+# print(query_resolver("79d8e767-8925-46c5-949a-0ec5a83272c3",'Owner kicked me out of the house for not paying previous month\'s rent, what are my options'))

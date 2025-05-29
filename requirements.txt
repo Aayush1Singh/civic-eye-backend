@@ -1,0 +1,27 @@
+# Web framework
+fastapi==0.115.12
+uvicorn==0.34.2
+
+# Environment variables
+python-dotenv==1.1.0
+
+# Redis vector store
+redis==5.3.0
+langchain-community==0.3.24
+
+# LangChain core
+langchain==0.3.25
+
+# Google GenAI connector
+langchain-google-genai==2.1.4
+google-ai-generativelanguage==0.6.18
+
+# PDF parsing
+PyMuPDF==1.26.0
+
+# Database client
+pymongo==4.13.0
+
+# HTTP requests
+requests==2.32.3
+python-multipart==0.0.20

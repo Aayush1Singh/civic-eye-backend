@@ -1,0 +1,36 @@
+version: "3.9"
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    container_name: redis-persistent
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+
+  mongo:
+    image: mongo:6.0
+    container_name: mongo-db
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+
+  backend:
+    build: .
+    container_name: ai-legal-backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - mongo
+    volumes:
+      - .:/app
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  mongo_data:

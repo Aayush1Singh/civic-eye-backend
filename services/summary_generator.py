@@ -1,6 +1,5 @@
-from gemini_summary_llm import llm_cycle
+from services.gemini_summary_llm import llm_cycle
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 
 prompt=PromptTemplate(input_variables=['current_summary','new_query','gemini_response'], template="""You are a specialized AI assistant for an Indian legal analysis tool. Your primary function is to maintain an accurate and evolving summary of legal discussions.
 

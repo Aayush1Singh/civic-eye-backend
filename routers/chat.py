@@ -1,43 +1,7 @@
+from services.similar_cases import get_similar_cases
+from services.query_resolver import query_resolver
+def get_answers_to_normal_query(session_id,query):
+  return query_resolver(session_id,query)
 
-def get_answers(query,session_id,type: list[str]):
-  
-  return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-from typing import Annotated
-
-from typing_extensions import TypedDict
-
-from langgraph.graph import StateGraph, START
-from langgraph.graph.message import add_messages
-
-
-class State(TypedDict):
-    # Messages have the type "list". The `add_messages` function
-    # in the annotation defines how this state key should be updated
-    # (in this case, it appends messages to the list, rather than overwriting them)
-    messages: Annotated[list, add_messages]
-
-
-graph_builder = StateGraph(State)
+def get_answer_to_similar_cases(query,session_id,user_id):
+  return get_similar_cases(query,session_id,user_id)
