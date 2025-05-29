@@ -47,6 +47,11 @@ def push_session(user_id,session_id):
   
 
   
+def get_all_sessions(user_id):
+  users=db['Users']
+  user_details=users.find_one({'user_id':user_id})
+  all_sessions=user_details['all_sessions']
+  return all_sessions
   
 
 

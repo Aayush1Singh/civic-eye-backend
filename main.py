@@ -1,8 +1,9 @@
 
 from fastapi import FastAPI, Request, status, Depends, UploadFile, File, HTTPException
-from routers.handle_sessions import create_session,load_old_sessions,end_session
+from routers.handle_sessions import create_session,load_old_sessions,end_session,load_all_sessions
 from services.query_resolver import query_resolver
 from routers.chat import get_answer_to_similar_cases
+
 import json
 app = FastAPI()
 import os
@@ -21,6 +22,7 @@ async def create_new_session(request: Request):
     print(user_id)
     # user_id=request.state.user_id
     session_id=create_session(user_id)
+    
     return {'session_id':session_id}
 
 @app.get("/session/query/{session_id}")
@@ -76,3 +78,16 @@ async def get_similar_cases(session_id,request:Request):
     query=data['query']  
     user_id=data['user_id']
     return {'response':get_answer_to_similar_cases(query,session_id,user_id)}
+@app.get('/get_all_sessions')
+async def loader(request:Request):
+    body=await request.body()
+    data = json.loads(body)
+    user_id=data['user_id']
+    sessions=load_all_sessions(user_id)
+    return {'response':sessions}
+
+
+
+    
+    
+    

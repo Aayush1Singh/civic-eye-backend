@@ -1,6 +1,6 @@
 import uuid
 # import redis
-from services.get_sessions import push_session,get_session
+from services.get_sessions import push_session,get_session,get_all_sessions
 from pinecone import Pinecone
 import os
 from dotenv import load_dotenv
@@ -28,3 +28,6 @@ def end_session(session_id: str):
 
 def load_old_sessions(session_id,user_id):
   return get_session(session_id,user_id)
+
+def load_all_sessions(user_id):
+  return get_all_sessions(user_id)

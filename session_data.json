@@ -46,6 +46,7 @@
     "embedding_index": "idx:79d8e767",
     "created_at": { "$date": "2025-05-24T13:10:40Z" }
   },
+
   {
     "_id": { "$oid": "6653517b98aee278eb1e6c03" },
     "session_id": "f5340e60-5370-4b25-a112-4d79b9cfc59a",
