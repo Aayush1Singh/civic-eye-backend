@@ -11,7 +11,7 @@ def create_session(user_id):
   return session_id
 
 def end_session(session_id: str):
-    r = redis.Redis(host="localhost", port=6379)
+    r = redis.Redis(host="redis", port=6379)
     try:
         # DD = “Drop Docs” – removes every hash belonging to the index.
         r.execute_command(f"FT.DROPINDEX {session_id} DD")

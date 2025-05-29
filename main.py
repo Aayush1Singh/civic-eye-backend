@@ -59,7 +59,7 @@ async def embed_pdf(session_id,request:Request,file:UploadFile):
     return {'response':'PDF successfully uploaded'}  
  
 @app.post('/session/end_session/{session_id}')
-async def delete_embeddings(session_id,request:Request,file: UploadFile):
+async def delete_embeddings(session_id,request:Request):
     
     end_session(session_id)
     return {'response':'successfully deleted'}
