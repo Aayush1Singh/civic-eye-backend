@@ -10,9 +10,6 @@ embedding = embeddings = GoogleGenerativeAIEmbeddings(
     google_api_key=GEMINI_LIST[0]
 )  # or your embedding function
 
-
-
-
 index_name = "constitution_vector"
 
 # Load vector store

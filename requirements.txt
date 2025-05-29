@@ -25,3 +25,7 @@ pymongo==4.13.0
 # HTTP requests
 requests==2.32.3
 python-multipart==0.0.20
+
+pinecone-client>=3.0.0
+langchain>=0.1.0
+langchain-pinecone>=0.0.3

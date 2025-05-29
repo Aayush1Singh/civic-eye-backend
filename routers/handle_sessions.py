@@ -1,6 +1,10 @@
 import uuid
-import redis
+# import redis
 from services.get_sessions import push_session,get_session
+from pinecone import Pinecone
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 def generate_session_id(user_id):
   return f"{user_id}_{uuid.uuid4()}"
@@ -11,13 +15,15 @@ def create_session(user_id):
   return session_id
 
 def end_session(session_id: str):
-    r = redis.Redis(host="redis", port=6379)
-    try:
-        # DD = “Drop Docs” – removes every hash belonging to the index.
-        r.execute_command(f"FT.DROPINDEX {session_id} DD")
-    except redis.exceptions.ResponseError:
-        # Index might not exist yet / anymore – ignore.
-        pass
+    pc = Pinecone(api_key=os.getenv('PINECONE'))
+    pc.delete_index(name=session_id)
+    # r = redis.Redis(host="redis", port=6379)
+    # try:
+    #     # DD = “Drop Docs” – removes every hash belonging to the index.
+    #     r.execute_command(f"FT.DROPINDEX {session_id} DD")
+    # except redis.exceptions.ResponseError:
+    #     # Index might not exist yet / anymore – ignore.
+    #     pass
       
 
 def load_old_sessions(session_id,user_id):

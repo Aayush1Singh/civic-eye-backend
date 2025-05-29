@@ -1,11 +1,18 @@
 from services.get_sessions import get_summary
 from services.gemini_embedder import embedder_cycle
-from langchain_community.vectorstores import Redis
+# from langchain_community.vectorstores import Redis
 from services.gemini_chat_llm import llm_cycle
 from services.summary_generator import new_summary_generator
 from services.get_sessions import write_chat_to_history
 from langchain.prompts import PromptTemplate
 from services.zero_shot_classifier import label_to_index,classifier
+from pinecone import Pinecone
+from langchain_pinecone import PineconeVectorStore
+import os
+from dotenv import load_dotenv
+load_dotenv()
+pinecone_api_key = os.getenv("PINECONE")
+
 prompt=PromptTemplate(template="""
 You are an AI Legal Assistant specializing in Indian Law. Your purpose is to provide accurate and informative responses to legal queries within the Indian legal framework. You must operate with precision, referencing specific laws and sections.
 
@@ -56,17 +63,24 @@ def query_resolver(session_id,query):
     index_name =index_names[i]
     # Load vector store
     try:
-      vectorstore = Redis(
-        redis_url="redis://redis:6379", 
-        index_name=index_name,
-        embedding=embedding
-      )
+      pc=Pinecone(api_key=pinecone_api_key)
+      index = pc.Index(index_name) 
+    
+      vectorstore=PineconeVectorStore(index=index, embedding=embedding)
+
+      # vectorstore = Redis(
+      #   redis_url="redis://redis:6379", 
+      #   index_name=index_name,
+      #   embedding=embedding
+      # )
       # Run a similarity search
       retriever=vectorstore.as_retriever(
         search_type="similarity_score_threshold",
         search_kwargs={'score_threshold': 0.5}
       )
-      docs = retriever.get_relevant_documents(query)
+      
+      docs = retriever.invoke(query)
+      print(docs)
       relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
       
       if(len(relevant_docs)>0):
