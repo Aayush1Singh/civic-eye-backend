@@ -33,9 +33,6 @@ async def respond(session_id:str,request:Request):
     print(query,session_id)
     response=query_resolver(session_id,query)
     return {"response":response}
-
-
-
 @app.get('/session/load_chat/{session_id}')
 async def load_prev_chat(session_id,request:Request):
     
@@ -79,13 +76,13 @@ async def get_similar_cases(session_id,request:Request):
     user_id=data['user_id']
     return {'response':get_answer_to_similar_cases(query,session_id,user_id)}
 @app.get('/get_all_sessions')
-
 async def loader(request:Request):
     body=await request.body()
     data = json.loads(body)
     user_id=data['user_id']
     sessions=load_all_sessions(user_id)
     return {'response':sessions}
+
 
 
 

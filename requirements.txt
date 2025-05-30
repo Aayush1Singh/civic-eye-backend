@@ -29,3 +29,5 @@ python-multipart==0.0.20
 pinecone-client>=3.0.0
 langchain>=0.1.0
 langchain-pinecone>=0.0.3
+
+upstash-vector==0.8.0  # or the latest compatible version

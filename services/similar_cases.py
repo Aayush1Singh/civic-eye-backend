@@ -4,7 +4,8 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 from services.get_sessions import get_session
-from services.get_sessions import get_summary
+from services.get_sessions import get_summary,write_chat_to_history
+
 system_prompt={
               "role": "system",
               "content": """You are an AI legal research assistant specialized exclusively in Indian case law. You must:
@@ -25,7 +26,6 @@ system_prompt={
 }
 def get_similar_cases(query,session_id,user_id):
   summary,chat_history=get_session(session_id,user_id)
-  
   new_chat_history=[]
   new_chat_history.append(system_prompt)
   chat_history=chat_history[-5:]
@@ -51,6 +51,7 @@ def get_similar_cases(query,session_id,user_id):
   op=eval(op)
   print(op)
   output=op['choices'][0]['message']['content']
+  write_chat_to_history(session_id,summary,{'query':query,'response':op})
   return output
 
 
