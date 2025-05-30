@@ -5,7 +5,7 @@ from pinecone import Pinecone
 import os
 from dotenv import load_dotenv
 load_dotenv()
-
+from services.redis_upstash import delete_index
 def generate_session_id(user_id):
   return f"{user_id}_{uuid.uuid4()}"
 
@@ -15,8 +15,10 @@ def create_session(user_id):
   return session_id
 
 def end_session(session_id: str):
-    pc = Pinecone(api_key=os.getenv('PINECONE'))
-    pc.delete_index(name=session_id)
+  delete_index(session_id)
+  
+    # pc = Pinecone(api_key=os.getenv('PINECONE'))
+    # pc.delete_index(name=session_id)
     # r = redis.Redis(host="redis", port=6379)
     # try:
     #     # DD = “Drop Docs” – removes every hash belonging to the index.

@@ -12,6 +12,10 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 pinecone_api_key = os.getenv("PINECONE")
+from .redis_upstash import get_index
+from upstash_vector import Index
+from langchain_community.vectorstores.upstash import UpstashVectorStore
+
 
 prompt=PromptTemplate(template="""
 You are an AI Legal Assistant specializing in Indian Law. Your purpose is to provide accurate and informative responses to legal queries within the Indian legal framework. You must operate with precision, referencing specific laws and sections.
@@ -67,11 +71,14 @@ def query_resolver(session_id,query):
       # index = pc.Index(index_name) 
     
       # vectorstore=PineconeVectorStore(index=index, embedding=embedding)
-
-      vectorstore = Redis(
-        redis_url="redis://redis:6379", 
-        index_name=index_name,
-        embedding=embedding
+      url,token=get_index(index_name)
+      print(url)
+      index = Index(url=f"https://{url}", token=token)
+      vectorstore = UpstashVectorStore(
+        embedding=embedding,
+        index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
+        index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
+        index=index,
       )
       # Run a similarity search
       retriever=vectorstore.as_retriever(
