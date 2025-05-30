@@ -79,6 +79,7 @@ async def get_similar_cases(session_id,request:Request):
     user_id=data['user_id']
     return {'response':get_answer_to_similar_cases(query,session_id,user_id)}
 @app.get('/get_all_sessions')
+
 async def loader(request:Request):
     body=await request.body()
     data = json.loads(body)

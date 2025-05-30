@@ -1,6 +1,6 @@
 from services.get_sessions import get_summary
 from services.gemini_embedder import embedder_cycle
-# from langchain_community.vectorstores import Redis
+from langchain_community.vectorstores import Redis
 from services.gemini_chat_llm import llm_cycle
 from services.summary_generator import new_summary_generator
 from services.get_sessions import write_chat_to_history
@@ -63,16 +63,16 @@ def query_resolver(session_id,query):
     index_name =index_names[i]
     # Load vector store
     try:
-      pc=Pinecone(api_key=pinecone_api_key)
-      index = pc.Index(index_name) 
+      # pc=Pinecone(api_key=pinecone_api_key)
+      # index = pc.Index(index_name) 
     
-      vectorstore=PineconeVectorStore(index=index, embedding=embedding)
+      # vectorstore=PineconeVectorStore(index=index, embedding=embedding)
 
-      # vectorstore = Redis(
-      #   redis_url="redis://redis:6379", 
-      #   index_name=index_name,
-      #   embedding=embedding
-      # )
+      vectorstore = Redis(
+        redis_url="redis://redis:6379", 
+        index_name=index_name,
+        embedding=embedding
+      )
       # Run a similarity search
       retriever=vectorstore.as_retriever(
         search_type="similarity_score_threshold",

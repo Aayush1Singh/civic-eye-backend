@@ -41,6 +41,7 @@ def store_in_redis(docs, index_name,batch_size=50):
     #     redis_url="redis://localhost:6379",
     #     index_name=index_name
     # )
+    
     embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",     # Gemini embedding model
     google_api_key=GEMINI_LIST[0]
@@ -65,7 +66,6 @@ def store_in_redis(docs, index_name,batch_size=50):
             vector_store.add_documents(documents=batch_docs, ids=ids)
         except Exception as e:
             print(f"❌ Failed to upload batch {i // batch_size + 1}: {e}")  
-            
     # ids = [str(uuid.uuid4()) for _ in range(len(docs))]
     
     # vector_store.add_documents(documents=docs, ids=ids)

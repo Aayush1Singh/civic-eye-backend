@@ -9,12 +9,19 @@ GEMINI_LIST=eval(os.getenv('GEMINI_KEY_LIST'))
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
-# from langchain.vectorstores.redis import Redis
+from langchain.vectorstores.redis import Redis
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import fitz
 import uuid
 from pinecone import ServerlessSpec
+from urllib.parse import urlparse
+
+# Build Upstash Redis connection string
+endpoint = os.getenv("UPSTASH_REDIS_REST_URL").replace("https://", "")
+token = os.getenv("UPSTASH_REDIS_REST_TOKEN")
+
+REDIS_URL = f"rediss://:{token}@{endpoint}:6379"
 # from langchain.vectorstores.redis import Redis
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
@@ -27,13 +34,16 @@ def chunk_text(text, chunk_size=500, chunk_overlap=50):
     chunks = splitter.split_text(text)
     return [Document(page_content=chunk) for chunk in chunks]
   
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 embedList=[]
 for i in GEMINI_LIST:
+    
     try:
         temp = genai.configure(api_key=i)
         
-        embedder= genai.GenerativeModel("embedding-001")
+        embedder= GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        
         embedList.append(embedder)
     except Exception as e:
         print(f"Error during model initialization: {e}")
@@ -44,11 +54,13 @@ embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",     # Gemini embedding model
     google_api_key=GEMINI_LIST[0]
 )
-counter=0;
+
 def get_embedding(text):
-    counter+=1
+    counter=1
     counter%=len(GEMINI_LIST)
     model = embedList[counter]
+    
+    print(model.embed_content(content=text))
     return model.embed_content(text=text)["embedding"]
   
   
@@ -67,52 +79,77 @@ def extract_text_from_pdf(file_path):
     return "\n".join([page.get_text() for page in doc])
   
   
-
+import redis
 def store_in_redis(docs, index_name,batch_size=50):
-    # vectorstore = Redis.from_documents(
-    #     documents=docs,
-    #     embedding=embeddings,
-    #     redis_url="redis://localhost:6379",
-    #     index_name=index_name
-    # )
-    pc=Pinecone(api_key=pinecone_api_key)
-    if not pc.has_index(index_name):
-        pc.create_index(
-        name=index_name,
-        dimension=768,
-        metric="cosine",
-        spec=ServerlessSpec(cloud="aws", region="us-east-1"),
-        )
-    index = pc.Index(index_name) 
-    vector_store=PineconeVectorStore(index=index, embedding=embeddings)
 
-    for i in range(0, len(docs), batch_size):
-        batch_docs = docs[i:i + batch_size]
-        ids = [str(uuid.uuid4()) for _ in range(len(batch_docs))]
-        try:
-            vector_store.add_documents(documents=batch_docs, ids=ids)
-        except Exception as e:
-            print(f"❌ Failed to upload batch {i // batch_size + 1}: {e}")  
-    ids = [str(uuid.uuid4()) for _ in range(len(docs))]
+
+    vectorstore = Redis.from_documents(
+        documents=docs,
+        embedding=embeddings,
+        redis_url=REDIS_URL,
+        index_name=index_name
+    )
     
-    # vector_store.add_documents(documents=docs, ids=ids)
+    # vectorstore.add_documents(documents=docs, index_name=index_name)
     
     # return vectorstore
+    
+r = redis.Redis.from_url(
+    REDIS_URL,
+    ssl=True,
+    decode_responses=True
+)
+import json
+def store_embeddings(
+    docs: list, 
+    index_name: str,
+    get_embedding_fn,      # your function: str → List[float]
+):
+    """
+    docs: List of objects with a `.page_content` attribute (or just strings)
+    index_name: namespace prefix for your keys, e.g. "criminal_vectors"
+    get_embedding_fn: function that takes text and returns a list of floats
+    """
+    for doc in docs:
+        text = doc.page_content if hasattr(doc, "page_content") else str(doc)
+        emb  = get_embedding_fn(text)
+
+        key = f"{index_name}:{uuid.uuid4().hex}"
+        # store as a Redis hash
+        r.hset(key, mapping={
+            "text": text,
+            "embedding": json.dumps(emb)
+        })
+        print(f"Stored chunk under key {key}")
 
   
 # 🔹 Load Constitution PDF
 # "./preprocessed_docs/cropped_evidence_act.pdf","./preprocessed_docs/cropped_contract_act.pdf","./preprocessed_docs/cropped_consumer_act.pdf","./preprocessed_docs/cropped_constitution_of_india.pdf","./preprocessed_docs/cropped_company_act.pdf",
 
 # 'evidence-vector','contract-vector','consumer-vector','constitution-vector','company-vector','
-lt=["./preprocessed_docs/cropped_BNSS.pdf","./preprocessed_docs/cropped_BNS.pdf"]
-pt=['bns-vector','bnss-vector']
+lt=["./preprocessed_docs/cropped_evidence_act.pdf","./preprocessed_docs/cropped_contract_act.pdf","./preprocessed_docs/cropped_consumer_act.pdf","./preprocessed_docs/cropped_constitution_of_india.pdf","./preprocessed_docs/cropped_company_act.pdf","./preprocessed_docs/cropped_BNSS.pdf","./preprocessed_docs/cropped_BNS.pdf"]
 
-for i in range(len(lt)):
-    pdf_path = lt[i]
+pt=['evidence-vector','contract-vector','consumer-vector','constitution-vector','company-vector','bns-vector','bnss-vector']
+
+# for i in range(len(lt)):
+#     pdf_path = lt[i]
+#     text = extract_text_from_pdf(pdf_path)
+
+#     # 🔹 Chunk it
+#     documents = chunk_text(text)
+
+#     # 🔹 Store in Redis
+#     store_in_redis(documents, index_name=pt[i])
+for pdf_path, index_name in zip(lt, pt):
+    # 1. extract full text
     text = extract_text_from_pdf(pdf_path)
-
-    # 🔹 Chunk it
+    
+    # 2. split into chunks
     documents = chunk_text(text)
-
-    # 🔹 Store in Redis
-    store_in_redis(documents, index_name=pt[i])
+    
+    # 3. embed & store each chunk in Upstash Redis
+    store_embeddings(
+        docs=documents,
+        index_name=index_name,
+        get_embedding_fn=get_embedding
+    )
