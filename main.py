@@ -25,6 +25,7 @@ origins = [
      "http://127.0.0.1:5173",
      "http://localhost:8080/",
     "https://localhost.tiangolo.com",
+    "https://query-interface-gleam.vercel.app",
     "http://localhost",
     "http://localhost:8080",
 ]
