@@ -7,9 +7,9 @@ def get_session(session_id,creator):
   summary,chat_history=chat_info['summary'],chat_info['chat_history']
   return summary,chat_history
 
-def get_summary(session_id):
+def get_summary(session_id,user_id):
   sessions=db['Sessions']
-  chat_info=sessions.find_one({'session_id':session_id})
+  chat_info=sessions.find_one({'session_id':session_id,'creator':user_id})
   summary=chat_info['summary']
   return summary
 
@@ -39,17 +39,21 @@ def push_session(user_id,session_id):
   sessions=db['Sessions']
   sessions.insert_one(obj)
   users=db['Users']
-  users.update_one({'user_id':user_id},{
+  users.update_one({'_id':ObjectId(user_id)},{
     '$push':{
       "all_sessions":session_id
     }
   })
   
-
+from bson import ObjectId
   
 def get_all_sessions(user_id):
+  print('hellllppp',user_id)
   users=db['Users']
-  user_details=users.find_one({'user_id':user_id})
+  user_details=users.find_one({'_id':ObjectId(user_id)})
+  print(user_details)
+ 
+  
   all_sessions=user_details['all_sessions']
   return all_sessions
   

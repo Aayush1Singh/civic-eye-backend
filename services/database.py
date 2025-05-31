@@ -7,4 +7,3 @@ client=MongoClient(mongo_url)
 # client = MongoClient(os.getenv('DB_URL'))
 db=client['civic-eye']
 
-# print(db['Users'].insert_one({'user_id':'6630c4cb3107b768cfeee508'}))

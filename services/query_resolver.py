@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 pinecone_api_key = os.getenv("PINECONE")
 from .redis_upstash import get_index
+
 from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
 
@@ -49,8 +50,8 @@ Carefully analyze the provided `summary of chat history`, `context`, and the use
 JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
-def query_resolver(session_id,query):
-  current_summary=get_summary(session_id)
+def query_resolver(session_id,query,user_id):
+  current_summary=get_summary(session_id,user_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
   print(embedding)
@@ -65,14 +66,8 @@ def query_resolver(session_id,query):
   
   for i in range(len(index_names)):
     index_name =index_names[i]
-    # Load vector store
-    try:
-      # pc=Pinecone(api_key=pinecone_api_key)
-      # index = pc.Index(index_name) 
-    
-      # vectorstore=PineconeVectorStore(index=index, embedding=embedding)
+    try:     
       url,token=get_index(index_name)
-      print(url)
       index = Index(url=f"https://{url}", token=token)
       vectorstore = UpstashVectorStore(
         embedding=embedding,
@@ -80,12 +75,10 @@ def query_resolver(session_id,query):
         index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
         index=index,
       )
-      # Run a similarity search
       retriever=vectorstore.as_retriever(
         search_type="similarity_score_threshold",
         search_kwargs={'score_threshold': 0.5}
       )
-      
       docs = retriever.invoke(query)
       print(docs)
       relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
