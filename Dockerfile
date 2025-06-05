@@ -23,3 +23,10 @@ EXPOSE 8000
 
 # Run the FastAPI app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      tesseract-ocr \
+      poppler-utils \
+      libglib2.0-0 libsm6 libxext6 libxrender-dev && \
+    rm -rf /var/lib/apt/lists/*

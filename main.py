@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 origins = [
     "https://localhost:5173",
      "http://127.0.0.1:5173",
-     "http://localhost:8080/",
+     "http://localhost:8080",
     "https://localhost.tiangolo.com",
     "https://query-interface-gleam.vercel.app",
     "http://localhost",
@@ -50,7 +50,7 @@ async def create_new_session(request: Request):
     # user_id=request.state.user_id
     session_id=create_session(user_id)
     
-    return {'session_id':session_id}
+    return {'message':'success','session_id':session_id}
 
 @app.get("/session/query/{session_id}")
 async def respond(session_id:str,request:Request,query:str = Query(None)):
@@ -59,7 +59,8 @@ async def respond(session_id:str,request:Request,query:str = Query(None)):
     print(query,session_id)
     user_id = getattr(request.state, "user_id", None)
     response=query_resolver(session_id,query,user_id)
-    return {"response":response}
+    return {'message':'success',"response":response}
+
 @app.get('/session/load_chat/{session_id}')
 async def load_prev_chat(session_id,request:Request):
     
@@ -69,7 +70,7 @@ async def load_prev_chat(session_id,request:Request):
     print('in load_char ',session_id)
     user_id = getattr(request.state, "user_id", None)
     summary,chat_history=load_old_sessions(session_id,user_id)
-    return {"response":chat_history,"summary":summary}
+    return {'message':'success',"response":chat_history,"summary":summary}
     
 @app.post('/session/upload_pdf/{session_id}')
 async def embed_pdf(session_id,request:Request,file:UploadFile):
@@ -77,39 +78,35 @@ async def embed_pdf(session_id,request:Request,file:UploadFile):
     os.makedirs(upload_dir, exist_ok=True)
     _, file_extension = os.path.splitext(file.filename)
     if file_extension.lower() != ".pdf":
-        return {'error': 'Only PDF files are supported.'}  
+        return {'message':'failed','error': 'Only PDF files are supported.'}  
       
     file_location = f"{upload_dir}/{session_id}{file_extension}"
     with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
+        shutil.copyfileobj(file.file, buffer)    
     uploadPDF(f'uploads/{session_id}{file_extension}',session_id)
-    return {'response':'PDF successfully uploaded'}  
+    return {'message':'success','response':'PDF successfully uploaded'}  
  
 @app.post('/session/end_session/{session_id}')
 async def delete_embeddings(session_id,request:Request):
     
     end_session(session_id)
-    return {'response':'successfully deleted'}
+    return {'message':'success','response':'successfully deleted'}
 
 @app.post('/session/delete-session/{session_id}')
 def delete_session():
     return None
 
 @app.get('/session/get_similar/{session_id}')
-async def get_similar_cases(session_id,request:Request):
+async def get_similar_cases(session_id,request:Request,query:str = Query(None)):
     print('ejl')
-    body=await request.body()
-    data = json.loads(body)
-    query=data['query']  
-    user_id=data['user_id']
-    return {'response':get_answer_to_similar_cases(query,session_id,user_id)}
+    user_id = getattr(request.state, "user_id", None)
+    return {'message':'success','response':get_answer_to_similar_cases(query,session_id,user_id)}
 @app.get('/get_all_sessions')
 async def loader(request:Request):
     user_id = getattr(request.state, "user_id", None)
     print("hellp ",user_id)
     sessions=load_all_sessions(user_id)
-    return {'response':sessions}
+    return {'messaage':'success','response':sessions}
 
 
 async def checkForDuplicate(email):
@@ -282,7 +279,7 @@ async def signin(request:Request):
 )
         return response
     else:
-        return {'message':'failed login due to wrong cred'}
+        return {'message':'failed'}
     
 
 

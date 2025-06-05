@@ -32,5 +32,23 @@ langchain-pinecone>=0.0.3
 
 upstash-vector==0.8.0  # or the latest compatible version
 
-
 cryptography
+
+pdf2image==1.17.0
+pillow==11.2.1
+
+
+opencv-python==4.11.0.86
+numpy==2.2.6
+
+pytesseract==0.3.13
+
+
+TextBlob==0.19.0 
+joblib==1.5.1 
+nltk==3.9.1
+
+clean-text==0.6.0 
+emoji==1.7.0 
+ftfy==6.3.1 
+wcwidth==0.2.13
