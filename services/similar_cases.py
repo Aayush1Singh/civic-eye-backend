@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from services.get_sessions import get_session
 from services.get_sessions import get_summary,write_chat_to_history
-
+import json
 system_prompt={
               "role": "system",
               "content": """You are an AI legal research assistant specialized exclusively in Indian case law. You must:
@@ -24,7 +24,7 @@ system_prompt={
 7. Just output the legal answer directly. No meta-commentary.
 """
 }
-def get_similar_cases(query,session_id,user_id):
+async def get_similar_cases(query,session_id,user_id):
   summary,chat_history=get_session(session_id,user_id)
   new_chat_history=[]
   new_chat_history.append(system_prompt)
@@ -33,6 +33,7 @@ def get_similar_cases(query,session_id,user_id):
     #   print(i)
       new_chat_history.append({"role":'user',"content":i['query']})
       new_chat_history.append({'role':'assistant','content':i['response']})
+      
   new_chat_history.append({
               "role": "user",
               "content": query
@@ -46,12 +47,14 @@ def get_similar_cases(query,session_id,user_id):
       "Authorization": f"Bearer {os.getenv('PERPLEXITY')}",
       "Content-Type": "application/json"
   }
-  response = requests.request("POST", url, json=payload, headers=headers)
+  response =requests.request("POST", url, json=payload, headers=headers)
   op=response.text
-  op=eval(op)
+  op = json.loads(op)
+  print(op,type(op))
+  # op=eval(op)
   print(op)
   output=op['choices'][0]['message']['content']
-  write_chat_to_history(session_id,summary,{'query':query,'response':op})
+  write_chat_to_history(session_id,summary,{'query':query,'response':op['choices'][0]['message']['content']})
   return output
 
 

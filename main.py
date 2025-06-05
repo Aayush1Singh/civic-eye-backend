@@ -99,8 +99,12 @@ def delete_session():
 @app.get('/session/get_similar/{session_id}')
 async def get_similar_cases(session_id,request:Request,query:str = Query(None)):
     print('ejl')
+    
     user_id = getattr(request.state, "user_id", None)
-    return {'message':'success','response':get_answer_to_similar_cases(query,session_id,user_id)}
+    print(user_id,query,session_id)
+    res=await get_answer_to_similar_cases(query,session_id,user_id)
+    print(res)
+    return {'message':'success','response':res}
 @app.get('/get_all_sessions')
 async def loader(request:Request):
     user_id = getattr(request.state, "user_id", None)
