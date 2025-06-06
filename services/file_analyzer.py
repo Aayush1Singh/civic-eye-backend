@@ -1,11 +1,11 @@
 
-from pdf2image import convert_from_path
+# from pdf2image import convert_from_path
 from services.supabase_buckets_initialise import supabase
-from pdf2image import convert_from_path, convert_from_bytes
+# from pdf2image import convert_from_path, convert_from_bytes
 from services.get_sessions import write_analysis_to_history
-import cv2
-import numpy as np
-import pytesseract
+# import cv2
+# import numpy as np
+# import pytesseract
 import os
 from services.get_sessions import write_chat_to_history
 from services.get_sessions import get_summary
@@ -17,8 +17,8 @@ import string
 import re
 from services.pdf_parser import parse_and_clean_pdf
 from services.gemini_embedder import embedder_cycle
-from cleantext import clean
-from textblob import TextBlob
+# from cleantext import clean
+# from textblob import TextBlob
 from langchain.prompts import PromptTemplate
 from functools import reduce
 from services.gemini_chat_llm import llm_cycle
@@ -41,155 +41,155 @@ def load_pdf(session_id):
 def delete_pdf(session_id):
   os.remove(f'user_data/{session_id}.pdf')
   
-def pdf_to_images(pdf_path: str, dpi = PDF_DPI):
-    """
-    Convert each page of the PDF into a PIL Image at the given DPI.
-    Returns a list of PIL.Image objects, one per page.
-    """
-    doc = fitz.open(pdf_path)
-    images = []
+# def pdf_to_images(pdf_path: str, dpi = PDF_DPI):
+#     """
+#     Convert each page of the PDF into a PIL Image at the given DPI.
+#     Returns a list of PIL.Image objects, one per page.
+#     """
+#     doc = fitz.open(pdf_path)
+#     images = []
 
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap(dpi=200)
-        img = Image.open(io.BytesIO(pix.tobytes("png")))
-        images.append(img)
-    return images
+#     for page_num in range(len(doc)):
+#         page = doc.load_page(page_num)
+#         pix = page.get_pixmap(dpi=200)
+#         img = Image.open(io.BytesIO(pix.tobytes("png")))
+#         images.append(img)
+#     return images
   
-    # convert_from_path returns a list of PIL Images
-    images = convert_from_path(pdf_path, dpi=dpi)
-    return images
+#     # convert_from_path returns a list of PIL Images
+#     images = convert_from_path(pdf_path, dpi=dpi)
+#     return images
 
 
-def osd_rotate(pil_img):
-    """
-    Uses pytesseract.image_to_osd to detect full-page rotation (0, 90, 180, 270),
-    then rotates the PIL image to upright. If no rotation is detected, returns the original.
-    """
-    # Convert PIL → grayscale OpenCV
-    cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
+# def osd_rotate(pil_img):
+#     """
+#     Uses pytesseract.image_to_osd to detect full-page rotation (0, 90, 180, 270),
+#     then rotates the PIL image to upright. If no rotation is detected, returns the original.
+#     """
+#     # Convert PIL → grayscale OpenCV
+#     cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
 
-    # Suppress console logs from Tesseract if desired
-    custom_oem_psm = "--oem 3 --psm 0"
-    if SUPPRESS_OSD_WARNINGS:
-        pytesseract.pytesseract.tesseract_cmd = pytesseract.pytesseract.tesseract_cmd  # no-op
-        osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
-    else:
-        osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
+#     # Suppress console logs from Tesseract if desired
+#     custom_oem_psm = "--oem 3 --psm 0"
+#     if SUPPRESS_OSD_WARNINGS:
+#         pytesseract.pytesseract.tesseract_cmd = pytesseract.pytesseract.tesseract_cmd  # no-op
+#         osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
+#     else:
+#         osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
 
-    rotation_angle = osd_data.get("rotate", 0)
-    if rotation_angle != 0:
-        # PIL.rotate rotates counterclockwise; to undo a clockwise rotation use a negative angle
-        return pil_img.rotate(-rotation_angle, expand=True)
-    return pil_img
-
-
-# -----------------------------------------
-# 3) Deskew at arbitrary angle (± a few degrees)
-# -----------------------------------------
-def deskew_image(pil_img):
-    """
-    Finds the smallest bounding box around dark pixels (assumes text is darker than background),
-    computes its angle, and rotates the image to deskew if needed.
-    """
-    # Convert PIL → grayscale OpenCV
-    cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
-
-    # Binarize: text (dark) → white, background → black
-    # Use OTSU to auto‐select threshold
-    _, bw = cv2.threshold(cv_img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-    # Find coordinates of all non-zero (i.e. text) pixels
-    coords = np.column_stack(np.where(bw > 0))
-    if coords.size == 0:
-        # No text found; return original
-        return pil_img
-    # Compute minimum-area bounding rectangle around text pixels
-    rect = cv2.minAreaRect(coords)
-    angle = rect[-1]
-    # The angle returned by minAreaRect is between -90 and 0.
-    # We convert it to the correct “deskew” angle.
-    if angle < -45:
-        angle = angle + 90
-    # If skew is very small (< 0.5°), skip rotating
-    if abs(angle) < 0.5:
-        return pil_img
-    # Rotate the original PIL image by -angle degrees
-    return pil_img.rotate(-angle, expand=True)
-
-def ocr_image(pil_img, lang = "eng"):
-    """
-    Runs Tesseract OCR on the (already deskewed/rotated) PIL image and returns the extracted text.
-    """
-    return pytesseract.image_to_string(pil_img, lang=lang)
+#     rotation_angle = osd_data.get("rotate", 0)
+#     if rotation_angle != 0:
+#         # PIL.rotate rotates counterclockwise; to undo a clockwise rotation use a negative angle
+#         return pil_img.rotate(-rotation_angle, expand=True)
+#     return pil_img
 
 
-# -----------------------------------------
-# 5) Main pipeline
-# -----------------------------------------
+# # -----------------------------------------
+# # 3) Deskew at arbitrary angle (± a few degrees)
+# # -----------------------------------------
+# def deskew_image(pil_img):
+#     """
+#     Finds the smallest bounding box around dark pixels (assumes text is darker than background),
+#     computes its angle, and rotates the image to deskew if needed.
+#     """
+#     # Convert PIL → grayscale OpenCV
+#     cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
 
-def process_pdf_for_ocr(pdf_path):
-    """
-    - Converts PDF pages to images
-    - Auto-rotates 90°‐steps
-    - Deskews small angles
-    - Runs Tesseract OCR
-    - Saves corrected images (optional) and prints extracted text
-    """
-    images = pdf_to_images(pdf_path)
-    content=[]
-    for idx, page_img in enumerate(images, start=1):
-        try:
-            # Step A: OSD-based 90° rotation
-            rotated = osd_rotate(page_img)
-            # Step B: OpenCV-based deskew
-            deskewed = deskew_image(rotated)
-            # (Optional) Save intermediate deskewed image for inspection
-            out_filename = os.path.join(OUTPUT_FOLDER, f"page_{idx:03d}_corrected.png")
-            deskewed.save(out_filename, format="PNG")
-            # Step C: Run OCR
-            text = ocr_image(deskewed)
-            print(f"\n--- OCR Text from Page {idx} ---\n")
-            filtered_content=preprocess_text(text,idx)
-            print(filtered_content)
-            content.append(filtered_content)
-            # print(filtered_content)
-            print("\n-------------------------------\n")
+#     # Binarize: text (dark) → white, background → black
+#     # Use OTSU to auto‐select threshold
+#     _, bw = cv2.threshold(cv_img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-        except Exception as e:
-            print(f"[Error] Page {idx} failed: {e}")
-    return content
-def preprocess_text(text,page_no):
-    text = clean(
-    text,
-    fix_unicode=True,       # Fixes accents/encoding
-    to_ascii=True,          # Converts to closest ASCII
-    lower=False,
-    no_line_breaks=True,
-    no_urls=True,
-    no_emails=True,
-    no_phone_numbers=True,
-    no_numbers=False,
-    no_digits=False,
-    replace_with_punct="",
-    replace_with_url="<URL>",
-    replace_with_email="<EMAIL>",
-)    
-    lines=text.split('.');
-    new_lines=[]
-    for i in lines:
-        if(len(set(i))<=len(str(page_no+1))):
-            continue
-        else: 
-            new_lines.append('.'+re.sub(r'\s+', ' ', i))
+#     # Find coordinates of all non-zero (i.e. text) pixels
+#     coords = np.column_stack(np.where(bw > 0))
+#     if coords.size == 0:
+#         # No text found; return original
+#         return pil_img
+#     # Compute minimum-area bounding rectangle around text pixels
+#     rect = cv2.minAreaRect(coords)
+#     angle = rect[-1]
+#     # The angle returned by minAreaRect is between -90 and 0.
+#     # We convert it to the correct “deskew” angle.
+#     if angle < -45:
+#         angle = angle + 90
+#     # If skew is very small (< 0.5°), skip rotating
+#     if abs(angle) < 0.5:
+#         return pil_img
+#     # Rotate the original PIL image by -angle degrees
+#     return pil_img.rotate(-angle, expand=True)
+
+# def ocr_image(pil_img, lang = "eng"):
+#     """
+#     Runs Tesseract OCR on the (already deskewed/rotated) PIL image and returns the extracted text.
+#     """
+#     return pytesseract.image_to_string(pil_img, lang=lang)
+
+
+# # -----------------------------------------
+# # 5) Main pipeline
+# # -----------------------------------------
+
+# def process_pdf_for_ocr(pdf_path):
+#     """
+#     - Converts PDF pages to images
+#     - Auto-rotates 90°‐steps
+#     - Deskews small angles
+#     - Runs Tesseract OCR
+#     - Saves corrected images (optional) and prints extracted text
+#     """
+#     images = pdf_to_images(pdf_path)
+#     content=[]
+#     for idx, page_img in enumerate(images, start=1):
+#         try:
+#             # Step A: OSD-based 90° rotation
+#             rotated = osd_rotate(page_img)
+#             # Step B: OpenCV-based deskew
+#             deskewed = deskew_image(rotated)
+#             # (Optional) Save intermediate deskewed image for inspection
+#             out_filename = os.path.join(OUTPUT_FOLDER, f"page_{idx:03d}_corrected.png")
+#             deskewed.save(out_filename, format="PNG")
+#             # Step C: Run OCR
+#             text = ocr_image(deskewed)
+#             print(f"\n--- OCR Text from Page {idx} ---\n")
+#             filtered_content=preprocess_text(text,idx)
+#             print(filtered_content)
+#             content.append(filtered_content)
+#             # print(filtered_content)
+#             print("\n-------------------------------\n")
+
+#         except Exception as e:
+#             print(f"[Error] Page {idx} failed: {e}")
+#     return content
+# def preprocess_text(text,page_no):
+#     text = clean(
+#     text,
+#     fix_unicode=True,       # Fixes accents/encoding
+#     to_ascii=True,          # Converts to closest ASCII
+#     lower=False,
+#     no_line_breaks=True,
+#     no_urls=True,
+#     no_emails=True,
+#     no_phone_numbers=True,
+#     no_numbers=False,
+#     no_digits=False,
+#     replace_with_punct="",
+#     replace_with_url="<URL>",
+#     replace_with_email="<EMAIL>",
+# )    
+#     lines=text.split('.');
+#     new_lines=[]
+#     for i in lines:
+#         if(len(set(i))<=len(str(page_no+1))):
+#             continue
+#         else: 
+#             new_lines.append('.'+re.sub(r'\s+', ' ', i))
             
-    # print("hello ",new_lines)
-    new_str= str(reduce(lambda x,y:x+y,new_lines))
+#     # print("hello ",new_lines)
+#     new_str= str(reduce(lambda x,y:x+y,new_lines))
     
-    new_str=''.join(c for c in new_str if c in string.printable)
-    # print(new_str)
-    blob = TextBlob(new_str)
-    return str(blob.correct())
+#     new_str=''.join(c for c in new_str if c in string.printable)
+#     # print(new_str)
+#     blob = TextBlob(new_str)
+#     return str(blob.correct())
 
 prompt_clause_generator=PromptTemplate(template="""You are a legal document parser. Your task is to extract and structure key clauses from a legal document (delimited by @@@), grouping them under finite, broader thematic headings (e.g., “Eligibility,” “Payment Terms,” “Termination”,"Accusations") rather than assigning a unique title to each individual clause. If the given text is not a legal document, return an empty JSON array.
 
