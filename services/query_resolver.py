@@ -13,7 +13,6 @@ from dotenv import load_dotenv
 load_dotenv()
 pinecone_api_key = os.getenv("PINECONE")
 from .redis_upstash import get_index
-
 from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
 
@@ -50,7 +49,7 @@ Carefully analyze the provided `summary of chat history`, `context`, and the use
 JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
-def query_resolver(session_id,query,user_id):
+def query_resolver(session_id,query,user_id,isUpload):
   current_summary=get_summary(session_id,user_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
@@ -95,10 +94,13 @@ def query_resolver(session_id,query,user_id):
   chain = prompt | llm
   print(context)
   output = chain.invoke({'context':context,'query':query,"chat_history":current_summary})
+  
   new_chat={
     'query':query,"response":output
   }
-
+  if(isUpload): 
+    new_chat['isUpload']=1;
+  
   write_chat_to_history(session_id,current_summary,new_chat)
   # print(output.content)
   return output

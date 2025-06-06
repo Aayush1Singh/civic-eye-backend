@@ -11,7 +11,7 @@ import time
 import json
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
-
+from services.file_analyzer import analyze_document
 import os
 from dotenv import load_dotenv
 import shutil
@@ -20,6 +20,9 @@ from services.database import db
 import jwt
 import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from services.file_analyzer import load_pdf
+from routers.handlePDF import store_in_redis
+from services.get_sessions import load_analysis_from_history 
 origins = [
     "https://localhost:5173",
      "http://127.0.0.1:5173",
@@ -53,12 +56,16 @@ async def create_new_session(request: Request):
     return {'message':'success','session_id':session_id}
 
 @app.get("/session/query/{session_id}")
-async def respond(session_id:str,request:Request,query:str = Query(None)):
+async def respond(session_id:str,request:Request,query:str = Query(None),isUpload:bool =Query(None)):
     
     # query=data["query"]
+    if(isUpload):
+        load_pdf(session_id)
+        store_in_redis(f'user_data/{session_id}.pdf',session_id)
+        print('helo')
     print(query,session_id)
     user_id = getattr(request.state, "user_id", None)
-    response=query_resolver(session_id,query,user_id)
+    response=query_resolver(session_id,query,user_id,isUpload)
     return {'message':'success',"response":response}
 
 @app.get('/session/load_chat/{session_id}')
@@ -79,7 +86,6 @@ async def embed_pdf(session_id,request:Request,file:UploadFile):
     _, file_extension = os.path.splitext(file.filename)
     if file_extension.lower() != ".pdf":
         return {'message':'failed','error': 'Only PDF files are supported.'}  
-      
     file_location = f"{upload_dir}/{session_id}{file_extension}"
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)    
@@ -99,7 +105,6 @@ def delete_session():
 @app.get('/session/get_similar/{session_id}')
 async def get_similar_cases(session_id,request:Request,query:str = Query(None)):
     print('ejl')
-    
     user_id = getattr(request.state, "user_id", None)
     print(user_id,query,session_id)
     res=await get_answer_to_similar_cases(query,session_id,user_id)
@@ -111,7 +116,14 @@ async def loader(request:Request):
     print("hellp ",user_id)
     sessions=load_all_sessions(user_id)
     return {'messaage':'success','response':sessions}
-
+@app.get('/session/analyze/{session_id}')
+async def analyze_doc(session_id,request:Request):
+    print('hello')
+    if(session_id==None or session_id=='null'):
+        return {"message":'failed','response':[]}
+    user_id = getattr(request.state, "user_id", None)
+    op= analyze_document(session_id,user_id)
+    return {'response':op,"message":'success'}
 
 async def checkForDuplicate(email):
     if(email is None): 
@@ -197,10 +209,6 @@ def checkCred(email,password):
         return True
     else:
         return False
-  
-  
-  
-
 # Function to decode and verify JWT token
 def verify_jwt(token: str) -> dict:
     try:
@@ -285,8 +293,11 @@ async def signin(request:Request):
     else:
         return {'message':'failed'}
     
-
-
 @app.post('/verify')
 async def verify_user(token: str = Cookie(None)):
     return verify_jwt(token)
+
+@app.get('/session/load_analysis/{session_id}')
+async def load_analysis(session_id):
+    analysis=load_analysis_from_history(session_id)
+    return {'response': analysis,'message':'success'}

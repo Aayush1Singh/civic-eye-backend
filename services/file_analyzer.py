@@ -2,10 +2,14 @@
 from pdf2image import convert_from_path
 from services.supabase_buckets_initialise import supabase
 from pdf2image import convert_from_path, convert_from_bytes
+from services.get_sessions import write_analysis_to_history
 import cv2
 import numpy as np
 import pytesseract
 import os
+from services.get_sessions import write_chat_to_history
+from services.get_sessions import get_summary
+
 import fitz  # PyMuPDF
 from PIL import Image
 import io
@@ -31,11 +35,12 @@ def load_pdf(session_id):
   # Attempt to download the file from the "avatars" bucket
   print(f'{session_id}.pdf')
   file_data = supabase.storage.from_('file-storage').download(f'{session_id}.pdf')
-  
   with open(f'user_data/{session_id}.pdf', "wb") as f:
       f.write(file_data)
 
-
+def delete_pdf(session_id):
+  os.remove(f'user_data/{session_id}.pdf')
+  
 def pdf_to_images(pdf_path: str, dpi = PDF_DPI):
     """
     Convert each page of the PDF into a PIL Image at the given DPI.
@@ -397,7 +402,7 @@ Output:
 
 """,input_variables=['context','clauses','summary'])
 
-def analyze_document(session_id=None):
+def  analyze_document(session_id=None,user_id=None):
   # session_id='temp_chargesheet'
   load_pdf(session_id)
   content=parse_and_clean_pdf(f'user_data/{session_id}.pdf')
@@ -439,16 +444,17 @@ def analyze_document(session_id=None):
           dictionary_grp[i['title']].append(i['text'])
     
   for index_name in context_type:
-    url,token=get_index(index_name)
-    index = Index(url=f"https://{url}", token=token)
-    vectorstore = UpstashVectorStore(
-    embedding=embedding,
-    index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
-    index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
-    index=index,
-    )
-    
-    
+    try:
+      url,token=get_index(index_name)
+      index = Index(url=f"https://{url}", token=token)
+      vectorstore = UpstashVectorStore(
+      embedding=embedding,
+      index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
+      index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
+      index=index,
+      )
+    except Exception as e:
+      continue    
     retriever=vectorstore.as_retriever(
     search_type="similarity_score_threshold",
     search_kwargs={'score_threshold': 0.5}
@@ -472,6 +478,19 @@ def analyze_document(session_id=None):
         for j in range(i,min(len(clauses),i+5)):
             output[j-i]['clause']=clauses[j]
         final_output.extend(output)
+        
+  delete_pdf(session_id)
   print(final_output)
+  write_analysis_to_history(final_output,session_id)
 
-analyze_document()
+  current_summary=get_summary(session_id,user_id)
+  
+  print("Current- summary:->->")
+  print(summary)
+  
+  write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with ${0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True})
+
+  return final_output
+
+  
+

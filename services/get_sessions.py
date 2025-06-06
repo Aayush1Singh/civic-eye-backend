@@ -58,5 +58,18 @@ def get_all_sessions(user_id):
   return all_sessions
   
 
-
+def write_analysis_to_history(analysis,session_id):
+  analysis_collection=db['Analysis']
+  op= analysis_collection.insert_one({
+    'session_id':session_id,
+    'analysis':analysis
+  })
+  print('hello',op)
   
+def load_analysis_from_history(session_id):
+  analysis_collection=db['Analysis']
+  res= analysis_collection.find_one({
+    'session_id':session_id,
+  }) 
+  
+  return res['analysis']
