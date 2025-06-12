@@ -24,9 +24,6 @@ services:
       - .env
     ports:
       - "8000:8000"
-    # depends_on:
-    #   - redis
-    #   - mongo
     volumes:
       - .:/app
     restart: unless-stopped
