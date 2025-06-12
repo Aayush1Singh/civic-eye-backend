@@ -22,7 +22,7 @@ import datetime
 from fastapi.middleware.cors import CORSMiddleware
 from services.file_analyzer import load_pdf
 from routers.handlePDF import store_in_redis
-from services.get_sessions import load_analysis_from_history 
+from services.get_sessions import load_analysis_from_history,update_sesssion_document_array 
 origins = [
     "https://localhost:5173",
      "http://127.0.0.1:5173",
@@ -59,10 +59,10 @@ async def create_new_session(request: Request):
 async def respond(session_id:str,request:Request,query:str = Query(None),isUpload:bool =Query(None)):
     
     # query=data["query"]
-    if(isUpload):
-        load_pdf(session_id)
-        store_in_redis(f'user_data/{session_id}.pdf',session_id)
-        print('helo')
+    # if(isUpload):
+    #     load_pdf(session_id)
+    #     store_in_redis(f'user_data/{session_id}.pdf',session_id)
+    #     print('helo')
     print(query,session_id)
     user_id = getattr(request.state, "user_id", None)
     response=query_resolver(session_id,query,user_id,isUpload)
@@ -98,7 +98,7 @@ async def delete_embeddings(session_id,request:Request):
     end_session(session_id)
     return {'message':'success','response':'successfully deleted'}
 
-@app.post('/session/delete-session/{session_id}')
+@app.post('/session/delete_session/{session_id}')
 def delete_session():
     return None
 
@@ -174,7 +174,22 @@ def generate_jwt(payload: dict, expires_in_minutes=60) -> str:
     payload_copy["exp"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_in_minutes)
     token = jwt.encode(payload_copy, SECRET_KEY, algorithm="HS256")
     return token
-  
+@app.post('/verify')
+async def verify_user(token: str = Cookie(None)):
+    return verify_jwt(token)
+
+@app.get('/session/load_analysis/{session_id}')
+async def load_analysis(session_id,doc_id:str=Query(None)):
+    print(session_id,doc_id)
+    analysis=load_analysis_from_history(session_id,doc_id)
+    return {'response': analysis,'message':'success'}
+
+@app.post('/session/add_document/{session_id}')
+async def add_document_to_session(session_id,request:Request):
+    body=await request.body()
+    data = json.loads(body)
+    update_sesssion_document_array(data['id'],session_id)
+    return  None
 @app.post('/signup')
 async def signup(request:Request):
     body=await request.body()
@@ -293,11 +308,3 @@ async def signin(request:Request):
     else:
         return {'message':'failed'}
     
-@app.post('/verify')
-async def verify_user(token: str = Cookie(None)):
-    return verify_jwt(token)
-
-@app.get('/session/load_analysis/{session_id}')
-async def load_analysis(session_id):
-    analysis=load_analysis_from_history(session_id)
-    return {'response': analysis,'message':'success'}

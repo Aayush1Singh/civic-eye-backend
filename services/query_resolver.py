@@ -8,6 +8,8 @@ from langchain.prompts import PromptTemplate
 from services.zero_shot_classifier import label_to_index,classifier
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
+from services.file_analyzer import load_pdf
+from routers.handlePDF import store_in_redis,uploadPDF
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -50,13 +52,18 @@ JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
 def query_resolver(session_id,query,user_id,isUpload):
-  current_summary=get_summary(session_id,user_id)
+  current_summary,new_upload,last_id=get_summary(session_id,user_id)
+  if(new_upload):
+    print('embedding a new file')
+    load_pdf(session_id,last_id)
+    uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
   print(embedding)
   labels,scores=classifier(query)
-  
-  index_names=[session_id]
+  index_names=[]
+  if(last_id!=-1):
+    index_names.append('user_data') 
   for i in range(len(labels)):
     if(scores[i]>0.3):
       index_names.append(label_to_index[labels[i]])
@@ -74,9 +81,17 @@ def query_resolver(session_id,query,user_id,isUpload):
         index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
         index=index,
       )
+      if(index_name=='user_data'):
+        vectorstore=UpstashVectorStore(
+        embedding=embedding,
+        index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
+        index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
+        index=index,
+        namespace=f'{session_id}:{last_id}'
+      )
       retriever=vectorstore.as_retriever(
         search_type="similarity_score_threshold",
-        search_kwargs={'score_threshold': 0.5}
+        search_kwargs={'score_threshold': 0.3}
       )
       docs = retriever.invoke(query)
       print(docs)

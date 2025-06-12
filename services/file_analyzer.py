@@ -31,10 +31,10 @@ PDF_DPI = 300               # Increase DPI for sharper text (300 dpi is a common
 OUTPUT_FOLDER = "processed_pages"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 from PIL import Image
-def load_pdf(session_id):
+def load_pdf(session_id,last_id):
   # Attempt to download the file from the "avatars" bucket
-  print(f'{session_id}.pdf')
-  file_data = supabase.storage.from_('file-storage').download(f'{session_id}.pdf')
+  print(f'{session_id}/{last_id}.pdf')
+  file_data = supabase.storage.from_('file-storage').download(f'{session_id}/{last_id}.pdf')
   with open(f'user_data/{session_id}.pdf', "wb") as f:
       f.write(file_data)
 
@@ -299,7 +299,7 @@ Example output format:
 @@{summary}@@
 """,input_variables=['summary'])
 
-chain_analysis=PromptTemplate(template= """You are a legal-domain assistant. Below is a brief preview of the overall contract (“DOCUMENT_PREVIEW”), a single block of relevant Indian law passages (“LAW_CONTEXT”) retrieved via embeddings, and a batch of clauses (“CLAUSE_LIST”). Analyze each clause in light of the DOCUMENT_PREVIEW and the LAW_CONTEXT, and produce a structured JSON array—nicely indented—so it can be sent directly to our frontend. Please use your latest general knowledge in reference to indian laws in case if the LAW_CONTEXT is not enough or not related to question asked.
+chain_analysis=PromptTemplate(template= """You are a legal-domain assistant. Below is a brief preview of the overall contract (“DOCUMENT_PREVIEW”), a single block of relevant Indian law passages (“LAW_CONTEXT”) retrieved via embeddings, and a batch of clauses (“CLAUSE_LIST”). Analyze each clause in light of the DOCUMENT_PREVIEW and the LAW_CONTEXT, and produce a structured  array it can be sent directly to our frontend. Please use your latest general knowledge in reference to indian laws in case if the LAW_CONTEXT is not enough or not related to question asked.
 
 For each clause, do all of the following:
 
@@ -338,8 +338,8 @@ For each clause, do all of the following:
    • Assign a numeric score between 0.00 and 1.00 that indicates how heavily biased the clause is (0.00 = fully balanced; 1.00 = extremely one-sided).  
    • Return this as a float under `"bias_score"`.
 
-**Return exactly one JSON array**, nicely formatted (indented with two spaces), containing one object per clause in the same order as in CLAUSE_LIST. **Do not** include any extra text outside the JSON array.
-**Ensure the final JSON is syntactically valid and contains no extra commentary or explanatory text.**
+**Return exactly one array**, nicely formatted (indented with two spaces), containing one object per clause in the same order as in CLAUSE_LIST. **Do not** include any extra text outside the array.
+**Ensure the final array is syntactically valid and contains no extra commentary or explanatory text.**
 **Do not wrap the response in triple backticks or code fences.**  
 **Do not include explanations or commentary.**  
 **Only return the array directly.**
@@ -403,8 +403,9 @@ Output:
 """,input_variables=['context','clauses','summary'])
 
 def  analyze_document(session_id=None,user_id=None):
-  # session_id='temp_chargesheet'
-  load_pdf(session_id)
+  # sess
+  current_summary,new_upload,last_id=get_summary(session_id,user_id)
+  load_pdf(session_id,last_id)
   content=parse_and_clean_pdf(f'user_data/{session_id}.pdf')
   llm=next(llm_cycle)
   chain_clauses = prompt_clause_generator | llm
@@ -481,14 +482,14 @@ def  analyze_document(session_id=None,user_id=None):
         
   delete_pdf(session_id)
   print(final_output)
-  write_analysis_to_history(final_output,session_id)
+  write_analysis_to_history(final_output,session_id,last_id)
 
-  current_summary=get_summary(session_id,user_id)
+  # current_summary=get_summary(session_id,user_id)
   
   print("Current- summary:->->")
   print(summary)
   
-  write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with ${0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True})
+  write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with ${0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id})
 
   return final_output
 

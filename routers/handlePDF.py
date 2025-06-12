@@ -4,6 +4,7 @@ from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import fitz
+from services.database import db
 # from langchain_community.vectorstores.redis import Redis
 from services.gemini_embedder import get_model
 # import redis
@@ -35,9 +36,9 @@ def extract_text_from_pdf(file_path):
   
   
 
-def store_in_redis(docs, index_name,batch_size=50):
-    print(create_index(index_name))
-    url,token=get_index(index_name)
+def store_in_redis(docs, index_name,last_id,batch_size=50):
+    print(create_index('user_data'))
+    url,token=get_index('user_data')
     print(url)
     try:
       index = Index(url=f"https://{url}", token=token)
@@ -51,23 +52,22 @@ def store_in_redis(docs, index_name,batch_size=50):
       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
       index=index,
+      namespace=f'{index_name}:{last_id}'
       )
+      print('hello debug')
       vectorstore.add_documents(docs)
+      db['Sessions'].update_one({'session_id':index_name},{
+        '$set':{'new_upload':False}
+      })
     except Exception as e:
-      print(e)
-      
-    
-
-
-
-
-def uploadPDF(pdf_path:str,session_id:str):
+      print('a problem has occured ',e)
+def uploadPDF(pdf_path:str,session_id:str,last_id):
   print(pdf_path)
   text = extract_text_from_pdf(pdf_path)
   documents = chunk_text(text)
   if not documents:
     raise ValueError(f"No text found in PDF at {pdf_path}")  
-  store_in_redis(documents, index_name=session_id)
+  store_in_redis(documents, index_name=session_id,last_id=last_id)
 
 
 __all__=['uploadPDF','end_session']
