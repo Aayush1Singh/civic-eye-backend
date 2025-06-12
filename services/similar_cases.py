@@ -59,5 +59,5 @@ async def get_similar_cases(query,session_id,user_id):
   # op=eval(op)
   print(op)
   output=op['choices'][0]['message']['content']
-  write_chat_to_history(session_id,summary,{'query':query,'response':op['choices'][0]['message']['content']})
+  await write_chat_to_history(session_id,summary,{'query':query,'response':op['choices'][0]['message']['content']},user_id)
   return output

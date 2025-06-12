@@ -507,7 +507,7 @@ async def  analyze_document(session_id=None,user_id=None):
   print("Current- summary:->->")
   print(summary)
   
-  write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with ${0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id})
+  await write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with {0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id})
 
   return final_output
 

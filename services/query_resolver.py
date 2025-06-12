@@ -46,9 +46,16 @@ Carefully analyze the provided `summary of chat history`, `context`, and the use
 6.  **Clarity and Simplicity:** While maintaining legal accuracy, explain complex legal terms and concepts in a manner that is understandable to a layperson. Avoid unnecessary jargon.
 7.  **Address the Query Directly:** Ensure your response comprehensively addresses the user's `query`. Refer to `chat_history` to ensure your answer is contextually appropriate.
 8.  **Structured Answer:** If appropriate, structure your answer with headings or bullet points for better readability, especially for multi-faceted queries.
-9.  **Important Disclaimer (Mandatory Inclusion):** ALWAYS conclude your response with the following disclaimer: "Disclaimer: The information provided here is for general informational purposes only and does not constitute legal advice. It is recommended to consult with a qualified legal professional for advice tailored to your specific situation."
+8A. **Use Markdown formatting:** Format your response using Markdown for improved readability. Use:
+   - `##` or `###` headings to divide sections
+   - Bullet points (`-`) or numbered lists (`1.`) to enumerate items
+   - Bold (`**text**`) for emphasis
+   - Inline code (`` `code` ``) or code blocks (```...```) when quoting sections of laws or acts
+   - Do NOT include HTML or other formats—only Markdown.9.  **Important Disclaimer (Mandatory Inclusion):** ALWAYS conclude your response with the following disclaimer: "Disclaimer: The information provided here is for general informational purposes only and does not constitute legal advice. It is recommended to consult with a qualified legal professional for advice tailored to your specific situation."
 10. **Sometimes context or summary may not be provided, in that case just answer the query with your knowledge**
 11. Just output the legal answer directly. No meta-commentary.
+12. Just output the legal answer **in properly formatted Markdown**. No meta-commentary or prelude like "Here is the answer".
+
 **Output Expectation:**
 JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
@@ -120,7 +127,7 @@ async def query_resolver(session_id,query,user_id,isUpload):
   if(isUpload): 
     new_chat['isUpload']=1;
   
-  write_chat_to_history(session_id,current_summary,new_chat)
+  await write_chat_to_history(session_id,current_summary,new_chat,user_id)
   # print(output.content)
   return output
 
