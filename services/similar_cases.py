@@ -61,8 +61,3 @@ async def get_similar_cases(query,session_id,user_id):
   output=op['choices'][0]['message']['content']
   write_chat_to_history(session_id,summary,{'query':query,'response':op['choices'][0]['message']['content']})
   return output
-
-
-
-# if __name__=="__main__":
-#   get_similar_cases('tell me about cases where animal owner was plead guilty for mishandling animals leading to road accidents.',1,1)
