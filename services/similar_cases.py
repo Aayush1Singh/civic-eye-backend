@@ -2,7 +2,9 @@ import requests
 url = "https://api.perplexity.ai/chat/completions"
 import os
 from dotenv import load_dotenv
+import httpx
 load_dotenv()
+
 from services.get_sessions import get_session
 from services.get_sessions import get_summary,write_chat_to_history
 import json
@@ -47,7 +49,10 @@ async def get_similar_cases(query,session_id,user_id):
       "Authorization": f"Bearer {os.getenv('PERPLEXITY')}",
       "Content-Type": "application/json"
   }
-  response =requests.request("POST", url, json=payload, headers=headers)
+  async with httpx.AsyncClient() as client:
+    response = await client.post(url, headers=headers, json=payload)
+    response.raise_for_status()
+  # response =requests.request("POST", url, json=payload, headers=headers)
   op=response.text
   op = json.loads(op)
   print(op,type(op))
@@ -59,5 +64,5 @@ async def get_similar_cases(query,session_id,user_id):
 
 
 
-  
-# get_similar_cases('tell me about cases where animal owner was plead guilty for mishandling animals leading to road accidents.')
+# if __name__=="__main__":
+#   get_similar_cases('tell me about cases where animal owner was plead guilty for mishandling animals leading to road accidents.',1,1)

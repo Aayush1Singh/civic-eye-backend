@@ -17,7 +17,9 @@ pinecone_api_key = os.getenv("PINECONE")
 from .redis_upstash import get_index
 from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
-
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+_executor = ThreadPoolExecutor()
 
 prompt=PromptTemplate(template="""
 You are an AI Legal Assistant specializing in Indian Law. Your purpose is to provide accurate and informative responses to legal queries within the Indian legal framework. You must operate with precision, referencing specific laws and sections.
@@ -51,16 +53,16 @@ Carefully analyze the provided `summary of chat history`, `context`, and the use
 JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
-def query_resolver(session_id,query,user_id,isUpload):
+async def query_resolver(session_id,query,user_id,isUpload):
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   if(new_upload):
     print('embedding a new file')
-    load_pdf(session_id,last_id)
+    await load_pdf(session_id,last_id)
     uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
   print(embedding)
-  labels,scores=classifier(query)
+  labels,scores=await classifier(query)
   index_names=[]
   if(last_id!=-1):
     index_names.append('user_data') 
@@ -73,7 +75,7 @@ def query_resolver(session_id,query,user_id,isUpload):
   for i in range(len(index_names)):
     index_name =index_names[i]
     try:     
-      url,token=get_index(index_name)
+      url,token=await get_index(index_name)
       index = Index(url=f"https://{url}", token=token)
       vectorstore = UpstashVectorStore(
         embedding=embedding,
@@ -93,7 +95,9 @@ def query_resolver(session_id,query,user_id,isUpload):
         search_type="similarity_score_threshold",
         search_kwargs={'score_threshold': 0.3}
       )
-      docs = retriever.invoke(query)
+      loop = asyncio.get_running_loop()
+      docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
+      # docs = retriever.invoke(query)
       print(docs)
       relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
       
@@ -108,7 +112,7 @@ def query_resolver(session_id,query,user_id,isUpload):
   llm=next(llm_cycle)
   chain = prompt | llm
   print(context)
-  output = chain.invoke({'context':context,'query':query,"chat_history":current_summary})
+  output = await chain.ainvoke({'context':context,'query':query,"chat_history":current_summary})
   
   new_chat={
     'query':query,"response":output

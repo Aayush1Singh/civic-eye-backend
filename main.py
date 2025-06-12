@@ -66,7 +66,7 @@ async def respond(session_id:str,request:Request,query:str = Query(None),isUploa
     #     print('helo')
     print(query,session_id)
     user_id = getattr(request.state, "user_id", None)
-    response=query_resolver(session_id,query,user_id,isUpload)
+    response=await query_resolver(session_id,query,user_id,isUpload)
     return {'message':'success',"response":response}
 
 @app.get('/session/load_chat/{session_id}')
@@ -80,18 +80,18 @@ async def load_prev_chat(session_id,request:Request):
     summary,chat_history=load_old_sessions(session_id,user_id)
     return {'message':'success',"response":chat_history,"summary":summary}
     
-@app.post('/session/upload_pdf/{session_id}')
-async def embed_pdf(session_id,request:Request,file:UploadFile):
-    upload_dir = "uploads"
-    os.makedirs(upload_dir, exist_ok=True)
-    _, file_extension = os.path.splitext(file.filename)
-    if file_extension.lower() != ".pdf":
-        return {'message':'failed','error': 'Only PDF files are supported.'}  
-    file_location = f"{upload_dir}/{session_id}{file_extension}"
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)    
-    uploadPDF(f'uploads/{session_id}{file_extension}',session_id)
-    return {'message':'success','response':'PDF successfully uploaded'}  
+# @app.post('/session/upload_pdf/{session_id}')
+# async def embed_pdf(session_id,request:Request,file:UploadFile):
+#     upload_dir = "uploads"
+#     os.makedirs(upload_dir, exist_ok=True)
+#     _, file_extension = os.path.splitext(file.filename)
+#     if file_extension.lower() != ".pdf":
+#         return {'message':'failed','error': 'Only PDF files are supported.'}  
+#     file_location = f"{upload_dir}/{session_id}{file_extension}"
+#     with open(file_location, "wb") as buffer:
+#         shutil.copyfileobj(file.file, buffer)    
+#     uploadPDF(f'uploads/{session_id}{file_extension}',session_id)
+#     return {'message':'success','response':'PDF successfully uploaded'}  
  
 @app.post('/session/end_session/{session_id}')
 async def delete_embeddings(session_id,request:Request):
@@ -117,13 +117,14 @@ async def loader(request:Request):
     print("hellp ",user_id)
     sessions=load_all_sessions(user_id)
     return {'messaage':'success','response':sessions}
+
 @app.get('/session/analyze/{session_id}')
 async def analyze_doc(session_id,request:Request):
     print('hello')
     if(session_id==None or session_id=='null'):
         return {"message":'failed','response':[]}
     user_id = getattr(request.state, "user_id", None)
-    op= analyze_document(session_id,user_id)
+    op=await  analyze_document(session_id,user_id)
     return {'response':op,"message":'success'}
 
 async def checkForDuplicate(email):
@@ -240,6 +241,7 @@ def load_user_id(email):
     users=db['Users']
     user=users.find_one({'email':email})
     return user['_id']
+
 import http.cookies
 class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next,token:str=Cookie(None)):
@@ -260,10 +262,11 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         print(token)
         result=verify_jwt(token)
         print(result)
-        if request.url.path.startswith("/signin") or request.url.path.startswith("/signup") or request.url.path.startswith("/verify") :
+        if request.url.path.startswith("/signin") or request.url.path.startswith("/signup") or request.url.path.startswith("/verify") or request.url.path.startswith("/docs") :
             return await call_next(request)
         if(result["message"]=='success'):
             request.state.user_id=result['decoded']['user_id']
+            request.state.email=result['decoded']['email']
         elif result["message"] == 'failed' and result['error'] == 'Invalid token':
             raise HTTPException(status_code=402, detail="Invalid token")
         else:
@@ -309,3 +312,21 @@ async def signin(request:Request):
     else:
         return {'message':'failed'}
     
+@app.post('/reset_password')
+async def reset_pass(request:Request):
+    body=await request.body()
+    data = json.loads(body) 
+    email = getattr(request.state, "email", None)
+    password,new_password=data['password'] ,data['new_password']  
+    if checkCred(email,password):
+            key = load_key()
+            encrypted = encrypt_password(new_password, key)
+            db['Users'].update_one({'email':email},{
+                '$set':{'password':encrypted}
+            })
+            return {"message":'success'}
+    else:
+        return {"message":'failed','error':'Password is incorrect'}
+            
+
+        

@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 import requests
+import httpx
 API_URL = "https://router.huggingface.co/hf-inference/models/facebook/bart-large-mnli"
 
 # Map each label to the corresponding Redis index name
@@ -17,14 +18,17 @@ label_to_index = {
 
 DOCUMENT_CLASSES = list(label_to_index.keys())
 
-def classifier(user_query):    
+async def classifier(user_query):    
   headers = {
     "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
   }
-  def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+  
+  async def call_api(payload: dict) -> httpx.Response:
+    async with httpx.AsyncClient() as client:
+        response = await client.post(API_URL, headers=headers, json=payload)
     return response.json()
-  output = query({
+  
+  output =await  call_api({
     "inputs": user_query,
     "parameters": {"candidate_labels": DOCUMENT_CLASSES,"multi_label":True},
   })

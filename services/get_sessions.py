@@ -5,7 +5,6 @@ def get_session(session_id,creator):
   sessions=db['Sessions']
   chat_info=sessions.find_one({'session_id':session_id,"creator":creator})
   summary,chat_history=chat_info['summary'],chat_info['chat_history']
-  
   return summary,chat_history
 
 def get_summary(session_id,user_id):
@@ -20,6 +19,8 @@ def get_summary(session_id,user_id):
 def write_chat_to_history(session_id,current_summary,new_chat):
   sessions=db['Sessions']
   new_summary=new_summary_generator(current_summary,new_chat)
+  if(current_summary==""):
+    print("")
   sessions.update_one({
     "session_id" : session_id
     }, {
