@@ -31,6 +31,7 @@ origins = [
     "https://query-interface-gleam.vercel.app",
     "http://localhost",
     "http://localhost:8080",
+    "https://legalai-rrok.onrender.com"
 ]
 
 app.add_middleware(
