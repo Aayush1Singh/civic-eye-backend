@@ -21,7 +21,7 @@ async def get_index(index_name):
         response = await client.get(f"https://api.upstash.com/v2/vector/index/{index_name}")
         response.raise_for_status()  # optional: raise if we got 4xx/5xx
         # return response
-    # response =await  requests.get(f"https://api.upstash.com/v2/vector/index/{index_name}",auth=(os.getenv('EMAIL'), os.getenv('UPSTASH_API')))
+    # response =requests.get(f"https://api.upstash.com/v2/vector/index/{index_name}",auth=(os.getenv('EMAIL'), os.getenv('UPSTASH_API')))
     op=response.json()
     print(op)
     return op['endpoint'],op['token']

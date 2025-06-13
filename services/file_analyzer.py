@@ -9,7 +9,6 @@ from services.get_sessions import write_analysis_to_history
 import os
 from services.get_sessions import write_chat_to_history
 from services.get_sessions import get_summary
-
 import fitz  # PyMuPDF
 from PIL import Image
 import io
@@ -27,7 +26,7 @@ from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-
+from services.context_grab import context_grab
 SUPPRESS_OSD_WARNINGS = True  # Set to False if you want Tesseract OSD console output
 PDF_DPI = 300               # Increase DPI for sharper text (300 dpi is a common choice)
 OUTPUT_FOLDER = "processed_pages"
@@ -35,7 +34,9 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 from PIL import Image
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-
+def clean_text(text: str) -> str:
+    # Remove non-printable characters (like \n, \r, etc.)
+    return re.sub(r'[^\x20-\x7E]', ' ', text).strip()
 async def load_pdf(session_id,last_id):
   # Attempt to download the file from the "avatars" bucket
   print(f'{session_id}/{last_id}.pdf')
@@ -51,156 +52,6 @@ async def load_pdf(session_id,last_id):
 def delete_pdf(session_id):
   os.remove(f'user_data/{session_id}.pdf')
   
-# def pdf_to_images(pdf_path: str, dpi = PDF_DPI):
-#     """
-#     Convert each page of the PDF into a PIL Image at the given DPI.
-#     Returns a list of PIL.Image objects, one per page.
-#     """
-#     doc = fitz.open(pdf_path)
-#     images = []
-
-#     for page_num in range(len(doc)):
-#         page = doc.load_page(page_num)
-#         pix = page.get_pixmap(dpi=200)
-#         img = Image.open(io.BytesIO(pix.tobytes("png")))
-#         images.append(img)
-#     return images
-  
-#     # convert_from_path returns a list of PIL Images
-#     images = convert_from_path(pdf_path, dpi=dpi)
-#     return images
-
-
-# def osd_rotate(pil_img):
-#     """
-#     Uses pytesseract.image_to_osd to detect full-page rotation (0, 90, 180, 270),
-#     then rotates the PIL image to upright. If no rotation is detected, returns the original.
-#     """
-#     # Convert PIL → grayscale OpenCV
-#     cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
-
-#     # Suppress console logs from Tesseract if desired
-#     custom_oem_psm = "--oem 3 --psm 0"
-#     if SUPPRESS_OSD_WARNINGS:
-#         pytesseract.pytesseract.tesseract_cmd = pytesseract.pytesseract.tesseract_cmd  # no-op
-#         osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
-#     else:
-#         osd_data = pytesseract.image_to_osd(cv_img, output_type=pytesseract.Output.DICT, config=custom_oem_psm)
-
-#     rotation_angle = osd_data.get("rotate", 0)
-#     if rotation_angle != 0:
-#         # PIL.rotate rotates counterclockwise; to undo a clockwise rotation use a negative angle
-#         return pil_img.rotate(-rotation_angle, expand=True)
-#     return pil_img
-
-
-# # -----------------------------------------
-# # 3) Deskew at arbitrary angle (± a few degrees)
-# # -----------------------------------------
-# def deskew_image(pil_img):
-#     """
-#     Finds the smallest bounding box around dark pixels (assumes text is darker than background),
-#     computes its angle, and rotates the image to deskew if needed.
-#     """
-#     # Convert PIL → grayscale OpenCV
-#     cv_img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2GRAY)
-
-#     # Binarize: text (dark) → white, background → black
-#     # Use OTSU to auto‐select threshold
-#     _, bw = cv2.threshold(cv_img, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-#     # Find coordinates of all non-zero (i.e. text) pixels
-#     coords = np.column_stack(np.where(bw > 0))
-#     if coords.size == 0:
-#         # No text found; return original
-#         return pil_img
-#     # Compute minimum-area bounding rectangle around text pixels
-#     rect = cv2.minAreaRect(coords)
-#     angle = rect[-1]
-#     # The angle returned by minAreaRect is between -90 and 0.
-#     # We convert it to the correct “deskew” angle.
-#     if angle < -45:
-#         angle = angle + 90
-#     # If skew is very small (< 0.5°), skip rotating
-#     if abs(angle) < 0.5:
-#         return pil_img
-#     # Rotate the original PIL image by -angle degrees
-#     return pil_img.rotate(-angle, expand=True)
-
-# def ocr_image(pil_img, lang = "eng"):
-#     """
-#     Runs Tesseract OCR on the (already deskewed/rotated) PIL image and returns the extracted text.
-#     """
-#     return pytesseract.image_to_string(pil_img, lang=lang)
-
-
-# # -----------------------------------------
-# # 5) Main pipeline
-# # -----------------------------------------
-
-# def process_pdf_for_ocr(pdf_path):
-#     """
-#     - Converts PDF pages to images
-#     - Auto-rotates 90°‐steps
-#     - Deskews small angles
-#     - Runs Tesseract OCR
-#     - Saves corrected images (optional) and prints extracted text
-#     """
-#     images = pdf_to_images(pdf_path)
-#     content=[]
-#     for idx, page_img in enumerate(images, start=1):
-#         try:
-#             # Step A: OSD-based 90° rotation
-#             rotated = osd_rotate(page_img)
-#             # Step B: OpenCV-based deskew
-#             deskewed = deskew_image(rotated)
-#             # (Optional) Save intermediate deskewed image for inspection
-#             out_filename = os.path.join(OUTPUT_FOLDER, f"page_{idx:03d}_corrected.png")
-#             deskewed.save(out_filename, format="PNG")
-#             # Step C: Run OCR
-#             text = ocr_image(deskewed)
-#             print(f"\n--- OCR Text from Page {idx} ---\n")
-#             filtered_content=preprocess_text(text,idx)
-#             print(filtered_content)
-#             content.append(filtered_content)
-#             # print(filtered_content)
-#             print("\n-------------------------------\n")
-
-#         except Exception as e:
-#             print(f"[Error] Page {idx} failed: {e}")
-#     return content
-# def preprocess_text(text,page_no):
-#     text = clean(
-#     text,
-#     fix_unicode=True,       # Fixes accents/encoding
-#     to_ascii=True,          # Converts to closest ASCII
-#     lower=False,
-#     no_line_breaks=True,
-#     no_urls=True,
-#     no_emails=True,
-#     no_phone_numbers=True,
-#     no_numbers=False,
-#     no_digits=False,
-#     replace_with_punct="",
-#     replace_with_url="<URL>",
-#     replace_with_email="<EMAIL>",
-# )    
-#     lines=text.split('.');
-#     new_lines=[]
-#     for i in lines:
-#         if(len(set(i))<=len(str(page_no+1))):
-#             continue
-#         else: 
-#             new_lines.append('.'+re.sub(r'\s+', ' ', i))
-            
-#     # print("hello ",new_lines)
-#     new_str= str(reduce(lambda x,y:x+y,new_lines))
-    
-#     new_str=''.join(c for c in new_str if c in string.printable)
-#     # print(new_str)
-#     blob = TextBlob(new_str)
-#     return str(blob.correct())
-
 prompt_clause_generator=PromptTemplate(template="""You are a legal document parser. Your task is to extract and structure key clauses from a legal document (delimited by @@@), grouping them under finite, broader thematic headings (e.g., “Eligibility,” “Payment Terms,” “Termination”,"Accusations") rather than assigning a unique title to each individual clause. If the given text is not a legal document, return an empty JSON array.
 
 Instructions:
@@ -269,15 +120,16 @@ Instructions:
 Contract text:
 @@@{contract_text}@@@
 """,input_variables=['contract_text',])
-prompt_summary_generator=PromptTemplate(template="""You are a legal summarization assistant. Below is the full text of a contract (delimited by @) (OCR-cleaned). Produce a concise summary that includes:
-1.The type of contract (e.g., “Sales Agreement,” “NDA”).
+prompt_summary_generator=PromptTemplate(template="""You are a legal summarization assistant. Below is the full text of a legal document (FIR or contracts or judgements etc.) (delimited by @) (OCR-cleaned). Produce a concise summary that includes:
+1.The type of legal Document (e.g., “Sales Agreement,” “NDA”).
+2.The domains under which the docuent lies (e.g., "Marraige", "Divorce", "Sales","Defamation" etc. ). A document can have multiple domains.
 2.The number of parties involved and their names (e.g., “between Alpha Tech and Beta Solutions”).
 3.How those parties are related (e.g., “service provider and client,” “buyer and seller,” “licensor and licensee”).
 4.Its high-level purpose (e.g., “providing software-as-a-service,” “sale of goods,” “licensing intellectual property”).
 5.Do not include any meta commentary
 6.If any Non understandable words/ gibberish found, ignore them.
 
-Return exactly one or two sentences—no more.
+Return paragraph of atmost 5 sentences.
 
 Preview of Contract:
 @{preview}@
@@ -422,7 +274,6 @@ async def  analyze_document(session_id=None,user_id=None):
       executor,
       lambda: parse_and_clean_pdf(f'user_data/{session_id}.pdf'))
 
-  # content=parse_and_clean_pdf(f'user_data/{session_id}.pdf')
   llm=next(llm_cycle)
   chain_clauses = prompt_clause_generator | llm
   chain_summary=prompt_summary_generator | llm
@@ -431,13 +282,6 @@ async def  analyze_document(session_id=None,user_id=None):
   temp=content.split('.')
   final_preview=temp[:min(len(temp),100)]
   
-#   for i in range(len(content)):
-#       if(len(content[i])>0):
-#           final_text+='\n'+f"Content from Page {i}\n"+content[i]
-
-#       if(i<8 and len(content[i])>0):
-#           final_preview+='\n'+f"Content from Page {i}\n"+content[i]
-          
   clauses= await chain_clauses.ainvoke({'contract_text':final_text})
   print('Clauses:->->->->')
   print(clauses, type(clauses))
@@ -447,7 +291,24 @@ async def  analyze_document(session_id=None,user_id=None):
   summary=await chain_summary.ainvoke({'preview':final_preview})
   print('Summary:->->->->')
   print(summary,type(summary))
-  context_type=eval(await chain_type.ainvoke({'summary':summary}))
+  
+  url,token=await get_index('namespaces')
+  index_classifier = Index(url=f"https://{url}", token=token)
+  url,token=await get_index('acts')
+  index_main=Index(url=f"https://{url}", token=token)
+  # query="i am being harrased by a loan agent"
+  model=next(embedder_cycle)
+  vectors = model.embed_query(summary)
+  op=index_classifier.query(
+  vector=vectors,
+  include_metadata=True,
+  include_data=False,
+  include_vectors=False,
+  top_k=4,
+  )
+  context_type=[i.metadata['namespace'] for i in op]
+  # context_type=await context_grab(summary)
+  # context_type=eval(await chain_type.ainvoke({'summary':summary}))
   print('Context-type->->->')
   print(context_type)
   final_analysis= chain_analysis | llm
@@ -459,16 +320,16 @@ async def  analyze_document(session_id=None,user_id=None):
         dictionary_grp[i['title']]=[i['text'],]
       else:
           dictionary_grp[i['title']].append(i['text'])
-    
+  url,token=await get_index('acts')
+  index = Index(url=f"https://{url}", token=token)
   for index_name in context_type:
     try:
-      url,token=await get_index(index_name)
-      index = Index(url=f"https://{url}", token=token)
       vectorstore = UpstashVectorStore(
       embedding=embedding,
       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
       index=index,
+      namespace=index_name
       )
     except Exception as e:
       continue    
@@ -488,10 +349,10 @@ async def  analyze_document(session_id=None,user_id=None):
             clauses_text=clauses_text+clauses[j]
         for retriever in retriever_list:
             with ThreadPoolExecutor() as executor:
-              docs=await loop.run_in_executor(executor, lambda: retriever.invoke(clauses_text))
-            # docs = retriever.invoke(clauses_text)
+              cleaned_clauses=clean_text(clauses_text)
+              docs=await loop.run_in_executor(executor, lambda: retriever.invoke(cleaned_clauses))
             relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]  
-            final_context+=str(reduce(lambda x,y:x+y,relevant_docs))
+            final_context+=''.join(map(str, relevant_docs))
         output=await final_analysis.ainvoke({'clauses':clauses[i:min(len(clauses),i+5)],'context':final_context,'summary':summary})
         output=eval(output)
         for j in range(i,min(len(clauses),i+5)):
@@ -507,7 +368,7 @@ async def  analyze_document(session_id=None,user_id=None):
   print("Current- summary:->->")
   print(summary)
   
-  await write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with {0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id})
+  await write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with {0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id},user_id)
 
   return final_output
 

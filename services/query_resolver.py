@@ -9,6 +9,7 @@ from services.zero_shot_classifier import label_to_index,classifier
 from pinecone import Pinecone
 from langchain_pinecone import PineconeVectorStore
 from services.file_analyzer import load_pdf
+from services.context_grab import context_grab
 from routers.handlePDF import store_in_redis,uploadPDF
 import os
 from dotenv import load_dotenv
@@ -68,54 +69,79 @@ async def query_resolver(session_id,query,user_id,isUpload):
     uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
-  print(embedding)
-  labels,scores=await classifier(query)
-  index_names=[]
-  if(last_id!=-1):
-    index_names.append('user_data') 
-  for i in range(len(labels)):
-    if(scores[i]>0.3):
-      index_names.append(label_to_index[labels[i]])
-    else:
-      break
+  context=await context_grab(query)
   
-  for i in range(len(index_names)):
-    index_name =index_names[i]
-    try:     
-      url,token=await get_index(index_name)
-      index = Index(url=f"https://{url}", token=token)
-      vectorstore = UpstashVectorStore(
-        embedding=embedding,
-        index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
-        index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
-        index=index,
-      )
-      if(index_name=='user_data'):
-        vectorstore=UpstashVectorStore(
+  print(embedding)
+  # labels,scores=await classifier(query)
+  # index_names=[]
+  if(last_id!=-1):
+    url,token=await get_index('user_data')
+    index = Index(url=f"https://{url}", token=token)
+    vectorstore=UpstashVectorStore(
         embedding=embedding,
         index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
         index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
         index=index,
         namespace=f'{session_id}:{last_id}'
-      )
-      retriever=vectorstore.as_retriever(
-        search_type="similarity_score_threshold",
-        search_kwargs={'score_threshold': 0.3}
-      )
-      loop = asyncio.get_running_loop()
-      docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
-      # docs = retriever.invoke(query)
-      print(docs)
-      relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
+      )    
+    retriever=vectorstore.as_retriever(
+      search_type="similarity_score_threshold",
+      search_kwargs={'score_threshold': 0.3}
+    )
+    loop = asyncio.get_running_loop()
+    docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
+    relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
+    if(len(relevant_docs)>0):
+      context+='\n Context from last document Uploaded by user'
+      for i in relevant_docs:
+        context+="\n"+i
+
+
+    # index_names.append('user_data') 
+  # for i in range(len(labels)):
+  #   if(scores[i]>0.3):
+  #     index_names.append(label_to_index[labels[i]])
+  #   else:
+  #     break
+  
+  # for i in range(len(index_names)):
+  #   index_name =index_names[i]
+  #   try:     
+  #     url,token=await get_index(index_name)
+  #     index = Index(url=f"https://{url}", token=token)
+  #     vectorstore = UpstashVectorStore(
+  #       embedding=embedding,
+  #       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
+  #       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
+  #       index=index,
+  #     )
+  #     if(index_name=='user_data'):
+  #       vectorstore=UpstashVectorStore(
+  #       embedding=embedding,
+  #       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
+  #       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
+  #       index=index,
+  #       namespace=f'{session_id}:{last_id}'
+  #     )
+  #     retriever=vectorstore.as_retriever(
+  #       search_type="similarity_score_threshold",
+  #       search_kwargs={'score_threshold': 0.3}
+  #     )
+  #     loop = asyncio.get_running_loop()
+  #     docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
+  #     # docs = retriever.invoke(query)
+  #     print(docs)
+  #     relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
       
-      if(len(relevant_docs)>0):
-        context=context+'\n'+'Context from '+index_names[i].split('_')[0]+' laws:\n'
-      for i, res in enumerate(relevant_docs):
-        print(res)
-        context=context+'\n'+res
-        print(res)
-    except Exception as e:
-      print(e)
+  #     if(len(relevant_docs)>0):
+  #       context=context+'\n'+'Context from '+index_names[i].split('_')[0]+' laws:\n'
+  #     for i, res in enumerate(relevant_docs):
+  #       print(res)
+  #       context=context+'\n'+res
+  #       print(res)
+  #   except Exception as e:
+  #     print(e)
+         
   llm=next(llm_cycle)
   chain = prompt | llm
   print(context)
