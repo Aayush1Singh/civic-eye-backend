@@ -36,9 +36,9 @@ def extract_text_from_pdf(file_path):
   
   
 
-def store_in_redis(docs, index_name,last_id,batch_size=50):
+async def store_in_redis(docs, index_name,last_id,batch_size=50):
     print(create_index('user_data'))
-    url,token=get_index('user_data')
+    url,token=await get_index('user_data')
     print(url)
     try:
       index = Index(url=f"https://{url}", token=token)
@@ -61,7 +61,7 @@ def store_in_redis(docs, index_name,last_id,batch_size=50):
       })
     except Exception as e:
       print('a problem has occured ',e)
-def uploadPDF(pdf_path:str,session_id:str,last_id):
+async def uploadPDF(pdf_path:str,session_id:str,last_id):
   print(pdf_path)
   text = extract_text_from_pdf(pdf_path)
   documents = chunk_text(text)

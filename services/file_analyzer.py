@@ -1,23 +1,13 @@
 
-# from pdf2image import convert_from_path
 from services.supabase_buckets_initialise import supabase
-# from pdf2image import convert_from_path, convert_from_bytes
 from services.get_sessions import write_analysis_to_history
-# import cv2
-# import numpy as np
-# import pytesseract
 import os
 from services.get_sessions import write_chat_to_history
 from services.get_sessions import get_summary
 import fitz  # PyMuPDF
-from PIL import Image
-import io
-import string
 import re
 from services.pdf_parser import parse_and_clean_pdf
 from services.gemini_embedder import embedder_cycle
-# from cleantext import clean
-# from textblob import TextBlob
 from langchain.prompts import PromptTemplate
 from functools import reduce
 from services.gemini_chat_llm import llm_cycle
@@ -26,26 +16,17 @@ from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from services.context_grab import context_grab
-SUPPRESS_OSD_WARNINGS = True  # Set to False if you want Tesseract OSD console output
-PDF_DPI = 300               # Increase DPI for sharper text (300 dpi is a common choice)
-OUTPUT_FOLDER = "processed_pages"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-from PIL import Image
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 def clean_text(text: str) -> str:
-    # Remove non-printable characters (like \n, \r, etc.)
     return re.sub(r'[^\x20-\x7E]', ' ', text).strip()
 async def load_pdf(session_id,last_id):
-  # Attempt to download the file from the "avatars" bucket
   print(f'{session_id}/{last_id}.pdf')
   loop = asyncio.get_running_loop()
   with ThreadPoolExecutor() as executor:
     file_data = await loop.run_in_executor(
       executor,
       lambda: supabase.storage.from_('file-storage').download(f"{session_id}/{last_id}.pdf"))
-  # file_data = supabase.storage.from_('file-storage').download(f'{session_id}/{last_id}.pdf')
   with open(f'user_data/{session_id}.pdf', "wb") as f:
     f.write(file_data)
 
@@ -265,7 +246,6 @@ Output:
 """,input_variables=['context','clauses','summary'])
 
 async def  analyze_document(session_id=None,user_id=None):
-  # sess
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   await load_pdf(session_id,last_id)
   loop = asyncio.get_running_loop()
@@ -273,7 +253,6 @@ async def  analyze_document(session_id=None,user_id=None):
     content = await loop.run_in_executor(
       executor,
       lambda: parse_and_clean_pdf(f'user_data/{session_id}.pdf'))
-
   llm=next(llm_cycle)
   chain_clauses = prompt_clause_generator | llm
   chain_summary=prompt_summary_generator | llm
@@ -281,22 +260,13 @@ async def  analyze_document(session_id=None,user_id=None):
   final_text=content
   temp=content.split('.')
   final_preview=temp[:min(len(temp),100)]
-  
   clauses= await chain_clauses.ainvoke({'contract_text':final_text})
-  print('Clauses:->->->->')
-  print(clauses, type(clauses))
   clauses=eval(clauses)
-  print('Clauses:->->->->')
-  print(clauses, type(clauses))
   summary=await chain_summary.ainvoke({'preview':final_preview})
-  print('Summary:->->->->')
-  print(summary,type(summary))
-  
   url,token=await get_index('namespaces')
   index_classifier = Index(url=f"https://{url}", token=token)
   url,token=await get_index('acts')
   index_main=Index(url=f"https://{url}", token=token)
-  # query="i am being harrased by a loan agent"
   model=next(embedder_cycle)
   vectors = model.embed_query(summary)
   op=index_classifier.query(
@@ -307,10 +277,7 @@ async def  analyze_document(session_id=None,user_id=None):
   top_k=4,
   )
   context_type=[i.metadata['namespace'] for i in op]
-  # context_type=await context_grab(summary)
-  # context_type=eval(await chain_type.ainvoke({'summary':summary}))
   print('Context-type->->->')
-  print(context_type)
   final_analysis= chain_analysis | llm
   embedding =next(embedder_cycle)
   retriever_list=[]
@@ -340,7 +307,6 @@ async def  analyze_document(session_id=None,user_id=None):
     retriever_list.append(retriever)
 
   final_output=[]
-  # loop = asyncio.get_running_loop()
   for key,clauses in dictionary_grp.items():
     for i in range(0,len(clauses),5):
         clauses_text=''
@@ -358,16 +324,9 @@ async def  analyze_document(session_id=None,user_id=None):
         for j in range(i,min(len(clauses),i+5)):
             output[j-i]['clause']=clauses[j]
         final_output.extend(output)
-        
-  delete_pdf(session_id)
-  print(final_output)
-  write_analysis_to_history(final_output,session_id,last_id)
 
-  # current_summary=get_summary(session_id,user_id)
-  
-  print("Current- summary:->->")
-  print(summary)
-  
+  delete_pdf(session_id)
+  write_analysis_to_history(final_output,session_id,last_id)
   await write_chat_to_history(session_id,current_summary,{"query":"Used analyzed document","response":f"Analysis complete. Found ${len(final_output)} clauses, with {0} clauses showing high bias scores. See the detailed analysis report for more information.","analysedDoc":True,"fileUpload":True,'doc_id':last_id},user_id)
 
   return final_output

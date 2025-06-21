@@ -1,37 +1,25 @@
 
-from fastapi import FastAPI, Request, status, Depends, UploadFile, File, HTTPException, Cookie,Query
+from fastapi import FastAPI, Request, HTTPException, Cookie,Query
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from routers.handle_sessions import create_session,load_old_sessions,end_session,load_all_sessions
 from services.query_resolver import query_resolver
 from routers.chat import get_answer_to_similar_cases
-from cryptography.fernet import Fernet
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-import time
 import json
-from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+from cryptography.fernet import Fernet
 from services.file_analyzer import analyze_document
 import os
-from dotenv import load_dotenv
-import shutil
-from routers.handlePDF import uploadPDF
 from services.database import db
 import jwt
 import datetime
-from fastapi.middleware.cors import CORSMiddleware
-from services.file_analyzer import load_pdf
-from routers.handlePDF import store_in_redis
 from services.get_sessions import load_analysis_from_history,update_sesssion_document_array 
 origins = [
     "https://localhost:5173",
      "http://127.0.0.1:5173",
      "http://localhost:8080",
-    "https://localhost.tiangolo.com",
     "https://query-interface-gleam.vercel.app",
-    "http://localhost",
-    "http://localhost:8080",
-    "https://legalai-rrok.onrender.com"
 ]
 
 app.add_middleware(
@@ -41,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 SECRET_KEY=os.getenv('JWT_KEY')
 @app.get("/")
 async def root():
@@ -48,56 +38,44 @@ async def root():
 
 @app.post("/new_session")
 async def create_new_session(request: Request):
-    print(request)
-    user_id = getattr(request.state, "user_id", None)
-    print('lolololo ',user_id)
-    # user_id=request.state.user_id
-    session_id=create_session(user_id)
+    try:
+        user_id = getattr(request.state, "user_id", None)
+        session_id=create_session(user_id)
+        if session_id is not None:
+            return {'status':'success','session_id':session_id}
+        else:
+            return {'status':'failed','message':'Please try after some time, rate limit exceeded'}
+    except Exception as e:
+        return {'staus':'failed','message':'Session could not be created'}
     
-    return {'message':'success','session_id':session_id}
 
 @app.get("/session/query/{session_id}")
 async def respond(session_id:str,request:Request,query:str = Query(None),isUpload:bool =Query(None)):
-    
-    # query=data["query"]
-    # if(isUpload):
-    #     load_pdf(session_id)
-    #     store_in_redis(f'user_data/{session_id}.pdf',session_id)
-    #     print('helo')
-    print(query,session_id)
-    user_id = getattr(request.state, "user_id", None)
-    response=await query_resolver(session_id,query,user_id,isUpload)
-    return {'message':'success',"response":response}
+    try:
+        print(query,session_id)
+        user_id = getattr(request.state, "user_id", None)
+        response=await query_resolver(session_id,query,user_id,isUpload)
+        return {'status':'success',"response":response}
+    except Exception as e:
+        return {'status':'failed','message':'Server Could not respond'}
 
 @app.get('/session/load_chat/{session_id}')
 async def load_prev_chat(session_id,request:Request):
-    
-    # body=await request.body()
-    # data = json.loads(body)
-    # user_id=data['user_id']
-    print('in load_char ',session_id)
-    user_id = getattr(request.state, "user_id", None)
-    summary,chat_history=load_old_sessions(session_id,user_id)
-    return {'message':'success',"response":chat_history,"summary":summary}
-    
-# @app.post('/session/upload_pdf/{session_id}')
-# async def embed_pdf(session_id,request:Request,file:UploadFile):
-#     upload_dir = "uploads"
-#     os.makedirs(upload_dir, exist_ok=True)
-#     _, file_extension = os.path.splitext(file.filename)
-#     if file_extension.lower() != ".pdf":
-#         return {'message':'failed','error': 'Only PDF files are supported.'}  
-#     file_location = f"{upload_dir}/{session_id}{file_extension}"
-#     with open(file_location, "wb") as buffer:
-#         shutil.copyfileobj(file.file, buffer)    
-#     uploadPDF(f'uploads/{session_id}{file_extension}',session_id)
-#     return {'message':'success','response':'PDF successfully uploaded'}  
- 
+    try:
+        print('in load_char ',session_id)
+        user_id = getattr(request.state, "user_id", None)
+        summary,chat_history=load_old_sessions(session_id,user_id)
+        return {'status':'success',"response":chat_history,"summary":summary}
+    except Exception:
+        return {'status':'failed','message':'Could not load chat'}
+     
 @app.post('/session/end_session/{session_id}')
-async def delete_embeddings(session_id,request:Request):
-    
-    end_session(session_id)
-    return {'message':'success','response':'successfully deleted'}
+async def delete_embeddings(session_id):
+    try:
+        end_session(session_id)
+        return {'status':'success','response':'successfully deleted'}
+    except Exception:
+        return {'status':'failed','message':'Could not delete Session'}
 
 @app.post('/session/delete_session/{session_id}')
 def delete_session():
@@ -105,56 +83,62 @@ def delete_session():
 
 @app.get('/session/get_similar/{session_id}')
 async def get_similar_cases(session_id,request:Request,query:str = Query(None)):
-    print('ejl')
-    user_id = getattr(request.state, "user_id", None)
-    print(user_id,query,session_id)
-    res=await get_answer_to_similar_cases(query,session_id,user_id)
-    print(res)
-    return {'message':'success','response':res}
+    try:
+        user_id = getattr(request.state, "user_id", None)
+        res=await get_answer_to_similar_cases(query,session_id,user_id)
+        return {'status':'success','response':res}
+    except Exception as e:
+        print(e)
+        return {'status':'failed','message':'Could not respond to query'}
+    
 @app.get('/get_all_sessions')
 async def loader(request:Request):
-    user_id = getattr(request.state, "user_id", None)
-    print("hellp ",user_id)
-    sessions=load_all_sessions(user_id)
-    return {'messaage':'success','response':sessions}
+    try:
+        user_id = getattr(request.state, "user_id", None)
+        print("hellp ",user_id)
+        sessions=load_all_sessions(user_id)
+        return {'status':'success','response':sessions}
+    except:
+        return {'status':'failed','message':'Could not load previous chats'}
 
 @app.get('/session/analyze/{session_id}')
 async def analyze_doc(session_id,request:Request):
-    print('hello')
-    if(session_id==None or session_id=='null'):
-        return {"message":'failed','response':[]}
-    user_id = getattr(request.state, "user_id", None)
-    op=await  analyze_document(session_id,user_id)
-    return {'response':op,"message":'success'}
+    try:
+        print('hello')
+        if(session_id==None or session_id=='null'):
+            return {"status":'failed','response':[]}
+        user_id = getattr(request.state, "user_id", None)
+        op=await  analyze_document(session_id,user_id)
+        return {'response':op,"status":'success'}
+    except Exception:
+        return {'status':'failed','message':'Could not analyze File'}
 
 async def checkForDuplicate(email):
-    if(email is None): 
+    try:
+        if(email is None): 
+            return False
+        users=db['Users']
+        print(users)
+        op=users.find_one({'email':email})
+        
+        print(op)
+        if(op is None):
+            return False
+        if len(op)>0:
+            return True
+        else:
+            return False
+    except Exception:
         return False
-    users=db['Users']
-    print(users)
-    op=users.find_one({'email':email})
-    
-    print(op)
-    if(op is None):
-        return False
-    if len(op)>0:
-        return True
-    else:
-        return False
-# Generate a key (only do this once and save the key securely)
-
-# Load the previously generated key
 def load_key():
     with open("secret.key", "rb") as key_file:
         return key_file.read()
 
-# Encrypt the password
 def encrypt_password(password: str, key: bytes) -> bytes:
     f = Fernet(key)
     encrypted = f.encrypt(password.encode())
     return encrypted
 
-# Decrypt the password
 def decrypt_password(encrypted_password: bytes, key: bytes) -> str:
     f = Fernet(key)
     decrypted = f.decrypt(encrypted_password)
@@ -167,31 +151,40 @@ def create_new_user(email,password):
     encrypted = encrypt_password(password, key)
 
     new_user=users.insert_one({'email':email,'password':encrypted,'chat_history':[]})
-    return new_user
-    # decrypted = decrypt_password(encrypted, key)
-    # print(f"Decrypted: {decrypted}")
-    
+    return new_user    
+
+
 def generate_jwt(payload: dict, expires_in_minutes=60) -> str:
     payload_copy = payload.copy()
     payload_copy["exp"] = datetime.datetime.utcnow() + datetime.timedelta(minutes=expires_in_minutes)
     token = jwt.encode(payload_copy, SECRET_KEY, algorithm="HS256")
     return token
+
 @app.post('/verify')
 async def verify_user(token: str = Cookie(None)):
-    return verify_jwt(token)
+    try:
+        return verify_jwt(token)
+    except Exception:
+        return {'status':'failed','message':'Could not verify User'}
 
 @app.get('/session/load_analysis/{session_id}')
 async def load_analysis(session_id,doc_id:str=Query(None)):
-    print(session_id,doc_id)
-    analysis=load_analysis_from_history(session_id,doc_id)
-    return {'response': analysis,'message':'success'}
+    try:
+        print(session_id,doc_id)
+        analysis=load_analysis_from_history(session_id,doc_id)
+        return {'response': analysis,'status':'success'}
+    except Exception:
+        return {'status':'failed','message':'Could not load Analysis'}
 
 @app.post('/session/add_document/{session_id}')
 async def add_document_to_session(session_id,request:Request):
-    body=await request.body()
-    data = json.loads(body)
-    update_sesssion_document_array(data['id'],session_id)
-    return  None
+    try:
+        body=await request.body()
+        data = json.loads(body)
+        update_sesssion_document_array(data['id'],session_id)
+        return  {'status':'success'}
+    except Exception:
+        return {'status':'failed','message':'Could not add document to Session'}
 @app.post('/signup')
 async def signup(request:Request):
     body=await request.body()
@@ -200,41 +193,48 @@ async def signup(request:Request):
     email,password=data['email'],data['password']
     print(email,password)
     if( await checkForDuplicate(email)):
-        return {"message":"failed"}
+        return {"staus":"failed",'message':'User with same email already exsists'}
     else:
-        user_id=create_new_user(email,password)
-        token=generate_jwt({'user_id':str(user_id.inserted_id),'email':email})
-        print(token)
-        response = JSONResponse(content={"message": "success"})
-        response.set_cookie(
-    key="token",
-    value=token,
-    httponly=True,      # True = JavaScript can't read it; False = JS can read
-    max_age=3600,
-    secure=True,        # True only for HTTPS; you're on HTTP
-    samesite="none"      # Required for cross-origin cookies
-)
-        return response
+        try:
+            user_id=create_new_user(email,password)
+            token=generate_jwt({'user_id':str(user_id.inserted_id),'email':email})
+            print(token)
+            response = JSONResponse(content={"status": "success"})
+            response.set_cookie(
+                key="token",
+                value=token,
+                httponly=True,      # True = JavaScript can't read it; False = JS can read
+                max_age=3600,
+                secure=True,        # True only for HTTPS; you're on HTTP
+                samesite="none"      # Required for cross-origin cookies
+            )
+            return response
+        except Exception:
+            return {'status':'failed','message':'Could not create User'}
 
 def checkCred(email,password):
-    key = load_key()
-    users=db['Users']
-    user=users.find_one({'email':email})
-    encrypted=user['password']
-    decrypted = decrypt_password(encrypted, key)
-    if(decrypted==password):
-        return True
-    else:
+    try:
+        key = load_key()
+        users=db['Users']
+        user=users.find_one({'email':email})
+        encrypted=user['password']
+        decrypted = decrypt_password(encrypted, key)
+        if(decrypted==password):
+            return True
+        else:
+            return False
+    except Exception:
         return False
+
 # Function to decode and verify JWT token
 def verify_jwt(token: str) -> dict:
     try:
         decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        return {"decoded":decoded,"message":'success'}
+        return {"decoded":decoded,"status":'success'}
     except jwt.ExpiredSignatureError:
-        return {"error": "Token has expired",'message':'failed'}
+        return {"error": "Token has expired",'status':'failed'}
     except jwt.InvalidTokenError:
-        return {"error": "Invalid token",'message':'failed'}
+        return {"error": "Invalid token",'status':'failed'}
     
 def load_user_id(email):
     key = load_key()
@@ -264,29 +264,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         print(result)
         if request.url.path.startswith("/signin") or request.url.path.startswith("/signup") or request.url.path.startswith("/verify") or request.url.path.startswith("/docs") :
             return await call_next(request)
-        if(result["message"]=='success'):
+        if(result["status"]=='success'):
             request.state.user_id=result['decoded']['user_id']
             request.state.email=result['decoded']['email']
-        elif result["message"] == 'failed' and result['error'] == 'Invalid token':
+        elif result["status"] == 'failed' and result['error'] == 'Invalid token':
             raise HTTPException(status_code=402, detail="Invalid token")
         else:
-            raise HTTPException(status_code=401, detail="Token expired")
-            
-            
-        # auth_header = request.headers.get("Authorization")
-        # if not auth_header or not auth_header.startswith("Bearer "):
-        #     raise HTTPException(status_code=401, detail="Unauthorized")
-        # token = auth_header.split(" ")[1]
-        # try:
-        #     payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        #     request.state.user = payload  # Attach user info to the request if needed
-        # except jwt.ExpiredSignatureError:
-        #     raise HTTPException(status_code=401, detail="Token expired")
-        # except jwt.InvalidTokenError:
-        #     raise HTTPException(status_code=401, detail="Invalid token")
-        # if request.url.path.startswith("/verify"):
-        #     return {'messgae':'success'}
-        
+            raise HTTPException(status_code=401, detail="Token expired")        
         return await call_next(request)
 
 # Add the middleware to the app
@@ -297,26 +281,29 @@ async def signin(request:Request):
     data = json.loads(body)
     email,password=data['email'],data['password']
     if checkCred(email,password):
+        # print(email,password)
         user_id=load_user_id(email)
         token=generate_jwt({"user_id":str(user_id),"email":email})
-        response = JSONResponse(content={"message": "success"})
+        response = JSONResponse(content={"status": "success"})
         response.set_cookie(
-    key="token",
-    value=token,
-    httponly=True,      # True = JavaScript can't read it; False = JS can read
-    max_age=3600,
-    secure=True,        # True only for HTTPS; you're on HTTP
-    samesite="none"      # Required for cross-origin cookies
-)
+            key="token",
+            value=token,
+            httponly=True,      # True = JavaScript can't read it; False = JS can read
+            max_age=3600,
+            secure=True,        # True only for HTTPS; you're on HTTP
+            samesite="none"      # Required for cross-origin cookies
+        )
         return response
     else:
-        return {'message':'failed'}
+        return {'status':'failed','message':'Invalid email or password'}
     
 @app.post('/reset_password')
 async def reset_pass(request:Request):
     body=await request.body()
     data = json.loads(body) 
     email = getattr(request.state, "email", None)
+    if(email=='hello@gmail.com'): 
+        return {'status':'failed','message':'Changing password not allowed in test cred., create your own account.'}
     password,new_password=data['password'] ,data['new_password']  
     if checkCred(email,password):
             key = load_key()
@@ -324,9 +311,9 @@ async def reset_pass(request:Request):
             db['Users'].update_one({'email':email},{
                 '$set':{'password':encrypted}
             })
-            return {"message":'success'}
+            return {"status":'success','message':'Password Changed'}
     else:
-        return {"message":'failed','error':'Password is incorrect'}
+        return {"status":'failed','message':'Password is incorrect'}
             
 
         

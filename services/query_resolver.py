@@ -1,21 +1,16 @@
 from services.get_sessions import get_summary
 from services.gemini_embedder import embedder_cycle
-from langchain_community.vectorstores import Redis
 from services.gemini_chat_llm import llm_cycle
-from services.summary_generator import new_summary_generator
 from services.get_sessions import write_chat_to_history
 from langchain.prompts import PromptTemplate
-from services.zero_shot_classifier import label_to_index,classifier
-from pinecone import Pinecone
-from langchain_pinecone import PineconeVectorStore
 from services.file_analyzer import load_pdf
 from services.context_grab import context_grab
-from routers.handlePDF import store_in_redis,uploadPDF
+from routers.handlePDF import uploadPDF
 import os
 from dotenv import load_dotenv
 load_dotenv()
 pinecone_api_key = os.getenv("PINECONE")
-from .redis_upstash import get_index
+from services.redis_upstash import get_index
 from upstash_vector import Index
 from langchain_community.vectorstores.upstash import UpstashVectorStore
 import asyncio
@@ -64,16 +59,11 @@ JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 async def query_resolver(session_id,query,user_id,isUpload):
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   if(new_upload):
-    print('embedding a new file')
     await load_pdf(session_id,last_id)
     uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
   context=await context_grab(query)
-  
-  print(embedding)
-  # labels,scores=await classifier(query)
-  # index_names=[]
   if(last_id!=-1):
     url,token=await get_index('user_data')
     index = Index(url=f"https://{url}", token=token)
@@ -95,56 +85,9 @@ async def query_resolver(session_id,query,user_id,isUpload):
       context+='\n Context from last document Uploaded by user'
       for i in relevant_docs:
         context+="\n"+i
-
-
-    # index_names.append('user_data') 
-  # for i in range(len(labels)):
-  #   if(scores[i]>0.3):
-  #     index_names.append(label_to_index[labels[i]])
-  #   else:
-  #     break
-  
-  # for i in range(len(index_names)):
-  #   index_name =index_names[i]
-  #   try:     
-  #     url,token=await get_index(index_name)
-  #     index = Index(url=f"https://{url}", token=token)
-  #     vectorstore = UpstashVectorStore(
-  #       embedding=embedding,
-  #       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
-  #       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
-  #       index=index,
-  #     )
-  #     if(index_name=='user_data'):
-  #       vectorstore=UpstashVectorStore(
-  #       embedding=embedding,
-  #       index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
-  #       index_token=os.getenv("UPSTASH_VECTOR_REST_TOKEN"),
-  #       index=index,
-  #       namespace=f'{session_id}:{last_id}'
-  #     )
-  #     retriever=vectorstore.as_retriever(
-  #       search_type="similarity_score_threshold",
-  #       search_kwargs={'score_threshold': 0.3}
-  #     )
-  #     loop = asyncio.get_running_loop()
-  #     docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
-  #     # docs = retriever.invoke(query)
-  #     print(docs)
-  #     relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
-      
-  #     if(len(relevant_docs)>0):
-  #       context=context+'\n'+'Context from '+index_names[i].split('_')[0]+' laws:\n'
-  #     for i, res in enumerate(relevant_docs):
-  #       print(res)
-  #       context=context+'\n'+res
-  #       print(res)
-  #   except Exception as e:
-  #     print(e)
          
   llm=next(llm_cycle)
   chain = prompt | llm
-  print(context)
   output = await chain.ainvoke({'context':context,'query':query,"chat_history":current_summary})
   
   new_chat={
@@ -154,7 +97,5 @@ async def query_resolver(session_id,query,user_id,isUpload):
     new_chat['isUpload']=1;
   
   await write_chat_to_history(session_id,current_summary,new_chat,user_id)
-  # print(output.content)
   return output
 
-# print(query_resolver("79d8e767-8925-46c5-949a-0ec5a83272c3",'Owner kicked me out of the house for not paying previous month\'s rent, what are my options'))

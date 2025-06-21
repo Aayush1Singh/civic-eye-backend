@@ -77,23 +77,21 @@ def parse_and_clean_pdf(pdf_path: str) -> str:
     combined_text = re.sub(r"(?m)\s*\[\d+\]\s*$", "", combined_text)
     combined_text = re.sub(r"(?m)\s*\d+\)\s*$", "", combined_text)
     combined_text = re.sub(r"(?m)\s*\([a-zA-Z]\)\s*$", "", combined_text)
-    print('again header adn footer')
+    print('again header and footer')
     # 5.9 Standardize section/ clause numbering so an LLM sees “Section 1.1” clearly
     #     e.g., change “SECTION I. Overview” to “Section 1. Overview” (Roman→Arabic, if needed).
     #     This example only normalizes “SECTION I–X” → “Section 1–10” (basic)
-    # roman_map = {
-    #     "I": "1", "II": "2", "III": "3", "IV": "4", "V": "5",
-    #     "VI": "6", "VII": "7", "VIII": "8", "IX": "9", "X": "10"
-    # }
-    # def replace_roman(match):
-    #     roman = match.group(1)
-    #     arabic = roman_map.get(roman.upper(), roman)
-    #     return f"Section {arabic}"
-    # combined_text = re.sub(r"SECTION\s+(I|II|III|IV|V|VI|VII|VIII|IX|X)(?=\b)", replace_roman, combined_text, flags=re.IGNORECASE)
-
+    roman_map = {
+        "I": "1", "II": "2", "III": "3", "IV": "4", "V": "5",
+        "VI": "6", "VII": "7", "VIII": "8", "IX": "9", "X": "10"
+    }
+    def replace_roman(match):
+        roman = match.group(1)
+        arabic = roman_map.get(roman.upper(), roman)
+        return f"Section {arabic}"
+    combined_text = re.sub(r"SECTION\s+(I|II|III|IV|V|VI|VII|VIII|IX|X)(?=\b)", replace_roman, combined_text, flags=re.IGNORECASE)
     # 5.10 Collapse multiple blank lines again (in case previous steps introduced new gaps)
-    # combined_text = re.sub(r"\n{3,}", "\n\n", combined_text)
-
+    combined_text = re.sub(r"\n{3,}", "\n\n", combined_text)
     # -----------------------------------------------
     # 6. Return fully cleaned text
     # -----------------------------------------------

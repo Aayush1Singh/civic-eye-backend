@@ -6,7 +6,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 load_dotenv()
 GEMINI_LIST = eval(os.getenv('GEMINI_KEY_LIST'))
 
-# ── build an LLM pool ────────────────────────────────────────────
 llm_pool = [
     ChatGoogleGenerativeAI(
         model="gemini-1.5-flash-8b",

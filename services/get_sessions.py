@@ -3,6 +3,21 @@ from services.summary_generator import new_summary_generator
 from datetime import datetime
 from services.gemini_title_llm import llm_cycle
 from langchain.prompts import PromptTemplate
+from bson import ObjectId
+def isAvailable(user_id):
+  doc = db['Users'].find_one({ "_id": ObjectId(user_id) })
+  sessions = doc.get("all_sessions") or []
+  if sessions:
+      last_session = sessions[-1]
+      current_datetime = datetime.now()
+      if((current_datetime-last_session['updated_at']).total_seconds()>60):
+        return True   
+      else:
+        return False
+  else:
+      return True
+      print("No sessions found for this user.")
+      
 def get_session(session_id,creator):
   sessions=db['Sessions']
   chat_info=sessions.find_one({'session_id':session_id,"creator":creator})
@@ -30,6 +45,7 @@ Requirements:
  Use domain-specific terms (e.g., “BNSS”, “Contract Act”, “Bail”)  
  Avoid generic modifiers (“Overview”, “Guide”, “Discussion”)  
  Output only the title on a single line  
+ Direclt Answer,no **meta commentary**
 
 Example:
 query: “What are the penalties under Section 138 of the Negotiable Instruments Act?”  
@@ -85,7 +101,6 @@ def push_session(user_id,session_id):
     }
   })
   
-from bson import ObjectId
 def update_sesssion_document_array(random,session_id):
   sessions=db['Sessions']
   sessions.update_one({'session_id':session_id},{
@@ -98,12 +113,9 @@ def update_sesssion_document_array(random,session_id):
   })
 
 def get_all_sessions(user_id):
-  print('hellllppp',user_id)
   users=db['Users']
   user_details=users.find_one({'_id':ObjectId(user_id)})
   print(user_details)
- 
-  
   all_sessions=user_details['all_sessions']
   return all_sessions
   

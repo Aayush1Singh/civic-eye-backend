@@ -1,29 +1,55 @@
-import requests
 url = "https://api.perplexity.ai/chat/completions"
 import os
 from dotenv import load_dotenv
 import httpx
 load_dotenv()
-
+import traceback
 from services.get_sessions import get_session
 from services.get_sessions import get_summary,write_chat_to_history
 import json
+from httpx import Timeout
 system_prompt={
               "role": "system",
-              "content": """You are an AI legal research assistant specialized exclusively in Indian case law. You must:
-1. Accept a user's factual description of their legal scenario.
-2. Identify key legal issues, statutes, and jurisdictional hints (e.g., “Delhi High Court,” “Supreme Court of India,” “Bombay High Court”).
-3. Search only on verified sites like www.indiankanoon.org or related sites for relevant judgments.
-   • If a specific court is mentioned, restrict your search to that court.
-   • Otherwise, consider all Indian courts but prioritize higher courts first.
-4. Return the top 5-10 most on-point cases, each with:
-   a. A direct link to the judgment on indiankanoon.org.
-   b. The case name, citation, and court.
-   c. A 2-3-sentence summary of facts and holding.
-   d. A brief note on why it's relevant to the user's described scenario.
-5. Do not reference or search any sources outside India or indiankanoon.org.
-6. Present your answer in clear, numbered sections.
-7. Just output the legal answer directly. No meta-commentary.
+              "content": """You are an AI legal research assistant specialized exclusively in Indian case law. Follow these instructions exactly:
+## 1. User's Factual Scenario  
+- Read and understand the user's description of their legal problem.  
+- Identify key issues, statutes, and any jurisdictional cues (e.g., “Delhi High Court,” “Supreme Court of India,” “Bombay High Court,” “trial court,” etc.).
+
+## 2. Scope of Search  
+- Search for judgments from **all** Indian courts: Supreme Court, High Courts, and relevant trial‑court or tribunal decisions.  
+- Use **only verified** legal repositories and official court portals, such as:  
+  - indiankanoon.org  
+  - judis.nic.in (Supreme Court & High Courts)  
+  - Official High Court websites  
+  - SCC Online (if publicly accessible)  
+- **Do not** rely on unverified news articles or blogs that lack official citation.
+
+## 3. Jurisdictional Filtering  
+- If the user names a specific court or tribunal, limit your search to that forum first.  
+- If no court is specified, consider all jurisdictions but prioritize:  
+  1. Supreme Court precedents  
+  2. High Court rulings  
+  3. Lower courts or tribunal decisions
+
+## 4. Case Selection  
+Return the **top 5-10** most on-point cases. For each case include:  
+1. **Case Name**, **Citation**, **Court**  
+2. A **direct link** to the full judgment on a verified repository  
+3. A 2-3 sentence **summary** of the facts and holding  
+4. A brief **relevance note** explaining why it applies to the user’s scenario
+
+## 5. Presentation  
+- Number your cases **1. … 5/10.**  
+- Use clear, concise language—**no** meta-commentary on your own processes, only the legal analysis.
+- Return a Beautiful Markdown text.
+
+## 6. Verification  
+- Ensure every citation and link is drawn from an **official** or **well-recognized** legal source.  
+- Do **not** include judgments or links from generic news sites, unverified aggregation portals, or commentary blogs.
+
+---
+
+**Begin by restating the user's core legal issue in one sentence, then present the numbered list of cases as specified.**
 """
 }
 async def get_similar_cases(query,session_id,user_id):
@@ -32,7 +58,6 @@ async def get_similar_cases(query,session_id,user_id):
   new_chat_history.append(system_prompt)
   chat_history=chat_history[-5:]
   for i in chat_history:
-    #   print(i)
       new_chat_history.append({"role":'user',"content":i['query']})
       new_chat_history.append({'role':'assistant','content':i['response']})
       
@@ -49,15 +74,22 @@ async def get_similar_cases(query,session_id,user_id):
       "Authorization": f"Bearer {os.getenv('PERPLEXITY')}",
       "Content-Type": "application/json"
   }
-  async with httpx.AsyncClient() as client:
-    response = await client.post(url, headers=headers, json=payload)
-    response.raise_for_status()
-  # response =requests.request("POST", url, json=payload, headers=headers)
+  timeout = Timeout(
+    connect=5.0,  # how long to wait for a TCP connection
+    read=10.0,    # how long to wait for response bytes
+    write=5.0,    # how long to wait for write to complete
+    pool=5.0      # how long to wait for acquiring a pool connection
+)
+  response=""
+  try:
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+  except Exception:
+      print("–– caught exception ––")
+      traceback.print_exc()
   op=response.text
   op = json.loads(op)
-  print(op,type(op))
-  # op=eval(op)
-  print(op)
   output=op['choices'][0]['message']['content']
   await write_chat_to_history(session_id,summary,{'query':query,'response':op['choices'][0]['message']['content']},user_id)
   return output

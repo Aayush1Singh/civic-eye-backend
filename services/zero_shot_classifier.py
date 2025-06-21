@@ -32,6 +32,5 @@ async def classifier(user_query):
     "inputs": user_query,
     "parameters": {"candidate_labels": DOCUMENT_CLASSES,"multi_label":True},
   })
-  print(output)
   
   return output['labels'],output['scores']

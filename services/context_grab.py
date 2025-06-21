@@ -13,7 +13,6 @@ async def context_grab(query):
   index_classifier = Index(url=f"https://{url}", token=token)
   url,token=await get_index('acts')
   index_main=Index(url=f"https://{url}", token=token)
-  # query="i am being harrased by a loan agent"
   model=next(embedder_cycle)
   vectors = model.embed_query(query)
   op=index_classifier.query(
@@ -23,11 +22,8 @@ async def context_grab(query):
   include_vectors=False,
   top_k=4,
   )
-  final_context=""
-  print(op)
-  
+  final_context=""  
   for i in op:
-    print(i)
     namespace=i.metadata['namespace']
     vectorstore=UpstashVectorStore(
         embedding=model,
@@ -48,7 +44,4 @@ async def context_grab(query):
     final_context+="\nContext from "+namespace
     for i in relevant_docs:
       final_context+="\n"+i
-    # print(i.metadata['namespace'])
   return final_context
-# print(get_index, type(get_index))
-# print(asyncio.run(context_grab("i am being forced into unatural acts, what should i do?")))

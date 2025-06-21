@@ -1,18 +1,11 @@
-# chat_manager.py
 import itertools
 import os
 from dotenv import load_dotenv
-# from uuid import uuid4
-
 from langchain_google_genai import GoogleGenerativeAI
-# from langchain.chains import ConversationChain
-# from langchain.memory import ConversationSummaryMemory
-# from langchain.memory.chat_message_histories import RedisChatMessageHistory
 
 load_dotenv()
 GEMINI_LIST = eval(os.getenv('GEMINI_KEY_LIST'))
 
-# ── build an LLM pool ────────────────────────────────────────────
 llm_pool = [
     GoogleGenerativeAI(
         model="gemini-2.5-flash-preview-05-20",
@@ -21,7 +14,7 @@ llm_pool = [
     )
     for key in GEMINI_LIST
 ]
-llm_cycle = itertools.cycle(llm_pool)   # round-robin iterator
+llm_cycle = itertools.cycle(llm_pool)  
 
 
 
