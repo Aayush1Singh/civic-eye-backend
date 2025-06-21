@@ -10,6 +10,7 @@ def isAvailable(user_id):
   if sessions:
       last_session = sessions[-1]
       current_datetime = datetime.now()
+      print((current_datetime-last_session['updated_at']).total_seconds())
       if((current_datetime-last_session['updated_at']).total_seconds()>60):
         return True   
       else:
