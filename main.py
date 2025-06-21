@@ -58,6 +58,7 @@ async def respond(session_id:str,request:Request,query:str = Query(None),isUploa
         response=await query_resolver(session_id,query,user_id,isUpload)
         return {'status':'success',"response":response}
     except Exception as e:
+        print(e)
         return {'status':'failed','message':'Server Could not respond'}
 
 @app.get('/session/load_chat/{session_id}')

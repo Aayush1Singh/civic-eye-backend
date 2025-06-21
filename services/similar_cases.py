@@ -10,7 +10,7 @@ import json
 from httpx import Timeout
 system_prompt={
               "role": "system",
-              "content": """You are an AI legal research assistant specialized exclusively in Indian case law. Follow these instructions exactly:
+              "content": """You are an AI legal research assistant specialized exclusively in **Indian** case law. Follow these instructions exactly:
 ## 1. User's Factual Scenario  
 - Read and understand the user's description of their legal problem.  
 - Identify key issues, statutes, and any jurisdictional cues (e.g., “Delhi High Court,” “Supreme Court of India,” “Bombay High Court,” “trial court,” etc.).
@@ -39,7 +39,6 @@ Return the **top 5-10** most on-point cases. For each case include:
 4. A brief **relevance note** explaining why it applies to the user’s scenario
 
 ## 5. Presentation  
-- Number your cases **1. … 5/10.**  
 - Use clear, concise language—**no** meta-commentary on your own processes, only the legal analysis.
 - Return a Beautiful Markdown text.
 
@@ -75,10 +74,10 @@ async def get_similar_cases(query,session_id,user_id):
       "Content-Type": "application/json"
   }
   timeout = Timeout(
-    connect=5.0,  # how long to wait for a TCP connection
-    read=10.0,    # how long to wait for response bytes
-    write=5.0,    # how long to wait for write to complete
-    pool=5.0      # how long to wait for acquiring a pool connection
+    connect=20.0,  # how long to wait for a TCP connection
+    read=20.0,    # how long to wait for response bytes
+    write=20.0,    # how long to wait for write to complete
+    pool=20.0      # how long to wait for acquiring a pool connection
 )
   response=""
   try:
