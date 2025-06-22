@@ -1,5 +1,5 @@
 
-from fastapi import FastAPI, Request, HTTPException, Cookie,Query
+from fastapi import FastAPI, Request, HTTPException, Cookie,Query,Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from routers.handle_sessions import create_session,load_old_sessions,end_session,load_all_sessions
@@ -206,7 +206,6 @@ async def signup(request:Request):
                 key="token",
                 value=token,
                 httponly=True,      # True = JavaScript can't read it; False = JS can read
-                max_age=3600,
                 secure=True,        # True only for HTTPS; you're on HTTP
                 samesite="none"      # Required for cross-origin cookies
             )
@@ -264,7 +263,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         print(token)
         result=verify_jwt(token)
         print(result)
-        if request.url.path.startswith("/signin") or request.url.path.startswith("/signup") or request.url.path.startswith("/verify") or request.url.path.startswith("/docs") :
+        if request.url.path.startswith("/signin") or request.url.path.startswith("/signup") or request.url.path.startswith("/verify") or request.url.path.startswith("/logout") :
             return await call_next(request)
         if(result["status"]=='success'):
             request.state.user_id=result['decoded']['user_id']
@@ -291,9 +290,8 @@ async def signin(request:Request):
             key="token",
             value=token,
             httponly=True,      # True = JavaScript can't read it; False = JS can read
-            max_age=3600,
             secure=True,        # True only for HTTPS; you're on HTTP
-            samesite="none"      # Required for cross-origin cookies
+            samesite="none",
         )
         return response
     else:
@@ -316,6 +314,15 @@ async def reset_pass(request:Request):
             return {"status":'success','message':'Password Changed'}
     else:
         return {"status":'failed','message':'Password is incorrect'}
-            
 
-        
+@app.post("/logout")
+async def logout(response:Response):
+    response.set_cookie(
+        key="token",
+        value="",
+        httponly=True,      # True = JavaScript can't read it; False = JS can read
+        secure=True,   
+        samesite='none',# True only for HTTPS; you're on HTTP
+
+    )
+    return {'status':'success','message':'success'}
