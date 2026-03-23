@@ -8,7 +8,7 @@ import fitz  # PyMuPDF
 import re
 from services.pdf_parser import parse_and_clean_pdf
 from services.gemini_embedder import embedder_cycle
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from functools import reduce
 from services.gemini_chat_llm import llm_cycle
 from services.redis_upstash import get_index

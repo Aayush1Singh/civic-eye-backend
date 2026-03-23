@@ -2,7 +2,7 @@ from services.database import db
 from services.summary_generator import new_summary_generator
 from datetime import datetime
 from services.gemini_title_llm import llm_cycle
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from bson import ObjectId
 def isAvailable(user_id):
   doc = db['Users'].find_one({ "_id": ObjectId(user_id) })
@@ -29,7 +29,7 @@ def get_summary(session_id,user_id):
   sessions=db['Sessions']
   chat_info=sessions.find_one({'session_id':session_id,'creator':user_id})
   summary,new_upload,documents=chat_info['summary'],chat_info['new_upload'],chat_info['documentIds']
-  new_doc=-1;
+  new_doc=-1
   if(len(documents)>0):
     new_doc=documents[-1] 
   return summary,new_upload,new_doc

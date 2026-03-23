@@ -14,6 +14,7 @@ async def context_grab(query):
   url,token=await get_index('acts')
   index_main=Index(url=f"https://{url}", token=token)
   model=next(embedder_cycle)
+  print("in context_grab 1")
   vectors = model.embed_query(query)
   op=index_classifier.query(
   vector=vectors,
@@ -22,6 +23,7 @@ async def context_grab(query):
   include_vectors=False,
   top_k=4,
   )
+  print("in context_grab 2")
   final_context=""  
   for i in op:
     namespace=i.metadata['namespace']

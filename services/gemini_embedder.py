@@ -9,8 +9,10 @@ embedList=[]
 for i in GEMINI_LIST:
     try:
         embedder=GoogleGenerativeAIEmbeddings(
-                  model="models/embedding-001",
-                  google_api_key=i
+                  model="models/gemini-embedding-001",
+                  google_api_key=i,
+                  output_dimensionality=768
+                #   config=types.EmbedContentConfig(output_dimensionality=768) # Set your desired size (e.g., 768, 1536)
                 )
         embedList.append(embedder)
     except Exception as e:

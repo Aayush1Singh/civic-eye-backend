@@ -1,8 +1,8 @@
 from dotenv import load_dotenv
 import os
-from langchain.schema import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.schema import Document
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+# from langchain.schema import Document
 import fitz
 from services.database import db
 # from langchain_community.vectorstores.redis import Redis

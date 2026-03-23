@@ -2,7 +2,7 @@ from services.get_sessions import get_summary
 from services.gemini_embedder import embedder_cycle
 from services.gemini_chat_llm import llm_cycle
 from services.get_sessions import write_chat_to_history
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from services.file_analyzer import load_pdf
 from services.context_grab import context_grab
 from routers.handlePDF import uploadPDF
@@ -57,14 +57,21 @@ JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 """,input_variable=['context','querry','chat_history'])
 
 async def query_resolver(session_id,query,user_id,isUpload):
+  print("in query resolver 1")
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
+  print("in query resolver 5")
   if(new_upload):
     await load_pdf(session_id,last_id)
     uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
+  print("in query resolver 6")
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
+  print("in query resolver 7")
   context=await context_grab(query)
+  print("in query resolver 4")
+
   if(last_id!=-1):
+    print("in query resolver 3")
     url,token=await get_index('user_data')
     index = Index(url=f"https://{url}", token=token)
     vectorstore=UpstashVectorStore(
@@ -85,7 +92,8 @@ async def query_resolver(session_id,query,user_id,isUpload):
       context+='\n Context from last document Uploaded by user'
       for i in relevant_docs:
         context+="\n"+i
-         
+
+  print("in query resolver 2")
   llm=next(llm_cycle)
   chain = prompt | llm
   output = await chain.ainvoke({'context':context,'query':query,"chat_history":current_summary})
@@ -94,7 +102,7 @@ async def query_resolver(session_id,query,user_id,isUpload):
     'query':query,"response":output
   }
   if(isUpload): 
-    new_chat['isUpload']=1;
+    new_chat['isUpload']=1
   
   await write_chat_to_history(session_id,current_summary,new_chat,user_id)
   return output
