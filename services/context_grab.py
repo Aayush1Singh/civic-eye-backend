@@ -16,9 +16,10 @@ async def context_grab(query):
   model=next(embedder_cycle)
   print("in context_grab 1")
   vectors = model.embed_query(query)
+  #  get all the relevant low by similarity search on the centroid of laws
   op=index_classifier.query(
   vector=vectors,
-  include_metadata=True,
+  include_metadata=True, # metadata contains the law name
   include_data=False,
   include_vectors=False,
   top_k=4,
@@ -27,6 +28,7 @@ async def context_grab(query):
   final_context=""  
   for i in op:
     namespace=i.metadata['namespace']
+    # now take detialed context based on above laws identified
     vectorstore=UpstashVectorStore(
         embedding=model,
         index_url=os.getenv("UPSTASH_VECTOR_REST_URL"),
@@ -40,6 +42,7 @@ async def context_grab(query):
       )
     loop = asyncio.get_running_loop()
     docs=await loop.run_in_executor(_executor, lambda: retriever.invoke(query))
+    # langahchain maps metadata.text to page_content
     relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]
     if(len(relevant_docs)==0): 
       continue

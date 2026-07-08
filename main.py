@@ -1,4 +1,8 @@
+# flaw 1: using fernet should be using it, future upgrade include using bcrypt
+# no access/ refrsh token only refresh simple auth used
 
+# namespaces index contains centroid
+# acts index contains laws and its full embeddign, so a namespace is a law name and its embeddign inside it.
 from fastapi import FastAPI, Request, HTTPException, Cookie,Query,Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +10,7 @@ from routers.handle_sessions import create_session,load_old_sessions,end_session
 from services.query_resolver import query_resolver
 from routers.chat import get_answer_to_similar_cases
 from starlette.middleware.base import BaseHTTPMiddleware
+import traceback
 import json
 app = FastAPI()
 from cryptography.fernet import Fernet
@@ -110,9 +115,12 @@ async def analyze_doc(session_id,request:Request):
         if(session_id==None or session_id=='null'):
             return {"status":'failed','response':[]}
         user_id = getattr(request.state, "user_id", None)
+        print("hello2")
         op=await  analyze_document(session_id,user_id)
         return {'response':op,"status":'success'}
-    except Exception:
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
         return {'status':'failed','message':'Could not analyze File'}
 
 async def checkForDuplicate(email):

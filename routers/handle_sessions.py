@@ -10,6 +10,7 @@ def generate_session_id(user_id):
   return f"{user_id}_{uuid.uuid4()}"
 
 def create_session(user_id):
+    # basically try to rate limit by checking if a session was created in last 60 secs.
     if isAvailable(user_id):
       print('ok')
       session_id=generate_session_id(user_id)

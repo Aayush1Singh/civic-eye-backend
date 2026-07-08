@@ -172,7 +172,7 @@ SEARCH_URL = "https://www.indiacode.nic.in/handle/123456789/1360/simple-search"
 OUTPUT_DIR = Path("all_central_acts_pdfs")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Your full list of frequently used Central Acts
+# full list of frequently used Central Acts
 ACT_NAMES = [
     "Constitution of India, 1950",
     "Bharatiya Nyaya Sanhita, 2023",

@@ -1,4 +1,3 @@
-
 from services.supabase_buckets_initialise import supabase
 from services.get_sessions import write_analysis_to_history
 import os
@@ -23,6 +22,7 @@ def clean_text(text: str) -> str:
 async def load_pdf(session_id,last_id):
   print(f'{session_id}/{last_id}.pdf')
   loop = asyncio.get_running_loop()
+  # supabase download is synchronous, so we need to use a thread pool executor to run it in a separate thread
   with ThreadPoolExecutor() as executor:
     file_data = await loop.run_in_executor(
       executor,
@@ -245,10 +245,19 @@ Output:
 
 """,input_variables=['context','clauses','summary'])
 
+
+"""
+1. get the document through supabase
+2. doing conditional filtering of the pdf
+3. now fristl y  take the first 100 chars and passing it to generate a summary on the kind of text and parties involved and type of document
+4. now pass that preview for embedding search on centrod of law contents to get relevant laws
+5. 
+"""
 async def  analyze_document(session_id=None,user_id=None):
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   await load_pdf(session_id,last_id)
   loop = asyncio.get_running_loop()
+  # heavy task amde async, conditional cleaning
   with ThreadPoolExecutor() as executor:
     content = await loop.run_in_executor(
       executor,
@@ -282,6 +291,7 @@ async def  analyze_document(session_id=None,user_id=None):
   embedding =next(embedder_cycle)
   retriever_list=[]
   dictionary_grp={}
+  #  collapse content of same title into one
   for i in clauses:
       if i['title'] not in dictionary_grp:
         dictionary_grp[i['title']]=[i['text'],]
@@ -289,6 +299,7 @@ async def  analyze_document(session_id=None,user_id=None):
           dictionary_grp[i['title']].append(i['text'])
   url,token=await get_index('acts')
   index = Index(url=f"https://{url}", token=token)
+  #  building retreivers focused on identified laws, (one retreiver per law)
   for index_name in context_type:
     try:
       vectorstore = UpstashVectorStore(
@@ -305,7 +316,7 @@ async def  analyze_document(session_id=None,user_id=None):
     search_kwargs={'score_threshold': 0.5}
     )
     retriever_list.append(retriever)
-
+  # now take 5 - 5 clauses and and pass tohrough 
   final_output=[]
   for key,clauses in dictionary_grp.items():
     for i in range(0,len(clauses),5):
@@ -313,13 +324,16 @@ async def  analyze_document(session_id=None,user_id=None):
         final_context=""
         for j in range(i,min(len(clauses),i+5)):
             clauses_text=clauses_text+clauses[j]
+        # now pass the clauses text to each retreivers to get the relevant context
         for retriever in retriever_list:
             with ThreadPoolExecutor() as executor:
               cleaned_clauses=clean_text(clauses_text)
               docs=await loop.run_in_executor(executor, lambda: retriever.invoke(cleaned_clauses))
             relevant_docs = [doc.page_content for doc in docs if doc.page_content.strip()]  
             final_context+=''.join(map(str, relevant_docs))
+        # ----------- context built
         output=await final_analysis.ainvoke({'clauses':clauses[i:min(len(clauses),i+5)],'context':final_context,'summary':summary})
+        #  now pass that 5 clause and context from it to gemini
         output=eval(output)
         for j in range(i,min(len(clauses),i+5)):
             output[j-i]['clause']=clauses[j]

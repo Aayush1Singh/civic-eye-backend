@@ -58,10 +58,14 @@ JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 
 async def query_resolver(session_id,query,user_id,isUpload):
   print("in query resolver 1")
+  # last_id will be -1 if no pdf is uploaded, else the random id that was generated on front
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   print("in query resolver 5")
+  # brings to local storage in the backend
   if(new_upload):
     await load_pdf(session_id,last_id)
+
+    # now create embeddings of doc uplaoded and store in upstash
     uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   print("in query resolver 6")
   context=""
@@ -69,7 +73,7 @@ async def query_resolver(session_id,query,user_id,isUpload):
   print("in query resolver 7")
   context=await context_grab(query)
   print("in query resolver 4")
-
+  #  get the context from the uplaoded doc also if uploaded
   if(last_id!=-1):
     print("in query resolver 3")
     url,token=await get_index('user_data')
@@ -96,6 +100,7 @@ async def query_resolver(session_id,query,user_id,isUpload):
   print("in query resolver 2")
   llm=next(llm_cycle)
   chain = prompt | llm
+  # ai inovke is async so no executor required
   output = await chain.ainvoke({'context':context,'query':query,"chat_history":current_summary})
   
   new_chat={
@@ -103,7 +108,8 @@ async def query_resolver(session_id,query,user_id,isUpload):
   }
   if(isUpload): 
     new_chat['isUpload']=1
-  
+  # get the old summary and new chat, and update by sending another query to gemini, if the current summary is empty that means new chat, therefore new title
+  # is also generated to and updated to database
   await write_chat_to_history(session_id,current_summary,new_chat,user_id)
   return output
 

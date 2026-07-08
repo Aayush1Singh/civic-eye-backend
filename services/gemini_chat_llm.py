@@ -8,7 +8,7 @@ GEMINI_LIST = eval(os.getenv('GEMINI_KEY_LIST'))
 
 llm_pool = [
     GoogleGenerativeAI(
-        model="gemini-3-flash-preview",
+        model="gemini-2.5-flash",
         google_api_key=key,
         temperature=1,
     )

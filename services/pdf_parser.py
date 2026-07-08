@@ -62,7 +62,6 @@ def parse_and_clean_pdf(pdf_path: str) -> str:
             merged_lines.append(line)
     combined_text = "\n".join(merged_lines)
 
-    # 5.4 Normalize quotation marks and apostrophes
 
     # 5.5 Remove or flag “Confidential” / “Attorney-Client Privilege” banners
 
