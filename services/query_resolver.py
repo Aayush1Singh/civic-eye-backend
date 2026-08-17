@@ -58,7 +58,7 @@ JUST OUPUT THE ANSWWER WITHOUT ANY PRELUDE LIKE "HERE IS THE ANSWER".
 
 async def query_resolver(session_id,query,user_id,isUpload):
   print("in query resolver 1")
-  # last_id will be -1 if no pdf is uploaded, else the random id that was generated on front
+  # last_id will be -1 if no pdf is uploaded, else the random id of pdf that was generated on front
   current_summary,new_upload,last_id=get_summary(session_id,user_id)
   print("in query resolver 5")
   # brings to local storage in the backend
