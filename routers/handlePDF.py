@@ -44,7 +44,9 @@ async def store_in_redis(docs, index_name,last_id,batch_size=50):
       index = Index(url=f"https://{url}", token=token)
       embeddings = GoogleGenerativeAIEmbeddings(
       model="models/embedding-001",     # Gemini embedding model
-      google_api_key=GEMINI_LIST[0]
+      google_api_key=GEMINI_LIST[0],
+      output_dimensionality=768
+
       )   
       
       vectorstore = UpstashVectorStore(
