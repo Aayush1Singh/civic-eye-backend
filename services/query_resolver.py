@@ -66,7 +66,7 @@ async def query_resolver(session_id,query,user_id,isUpload):
     await load_pdf(session_id,last_id)
 
     # now create embeddings of doc uplaoded and store in upstash
-    uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
+    await uploadPDF(f'user_data/{session_id}.pdf',session_id,last_id)
   print("in query resolver 6")
   context=""
   embedding =next(embedder_cycle)  # or your embedding function
